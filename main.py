@@ -6,10 +6,13 @@ Created on Mon Jan 24 19:50:22 2022
 @author: binger
 """
 
-#import datasets, transformers, torch
+import datasets, transformers, torch
+
 from datasets import load_dataset
 from transformers import AutoTokenizer
 from transformers import DataCollatorWithPadding
+from transformers import BertForNextSentencePrediction
+
 
 from tools import *
 #%%

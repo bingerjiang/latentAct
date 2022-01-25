@@ -15,6 +15,8 @@ from datasets import load_dataset
 from transformers import AutoTokenizer
 from transformers import DataCollatorWithPadding
 from transformers import AdamW
+from transformers import BertForNextSentencePrediction
+
 
 
 from tools import *
