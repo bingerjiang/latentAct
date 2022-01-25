@@ -5,7 +5,7 @@ Created on Mon Jan 24 22:01:37 2022
 
 @author: binger
 """
-def sample_negative_next(sents, k):
+def sample_next(sents, k):
     '''
     Parameters
     ----------
@@ -48,7 +48,7 @@ def sample_negative_next(sents, k):
 
 
 
-def sample_negative_previous(sents, k):
+def sample_previous(sents, k):
     '''
     Parameters
     ----------

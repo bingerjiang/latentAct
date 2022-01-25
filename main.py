@@ -10,6 +10,8 @@ Created on Mon Jan 24 19:50:22 2022
 from datasets import load_dataset
 from transformers import AutoTokenizer
 from transformers import DataCollatorWithPadding
+
+from tools import *
 #%%
 
 dataset = load_dataset("daily_dialog")
@@ -25,100 +27,100 @@ dialogs_flat = [utt for dialog in dialogs for utt in dialog]
 dialogs_flat += [' ']
 
 #%%
-def sample_negative_next(sents, k):
-    '''
+# check length
+lengths = [len(el.split(' ')) for el in dialogs_flat]
+print(max(lengths)) #280
+#%%
+k = 10
 
-    Parameters
-    ----------
-    sents : list
-        list of utterances in dialogues
-    k : int
-        negative:positive
+nsp_a, nsp_b, nsp_labs = sample_next(dialogs_flat, k)
+psp_a, psp_b, psp_labs = sample_previous(dialogs_flat, k)
 
-    Returns
-    -------
-    sents_a : TYPE
-        DESCRIPTION.
-    sents_b : TYPE
-        DESCRIPTION.
-    labels : TYPE
-        DESCRIPTION.
 
-    '''
-    
-    sents_a = []
-    sents_b = []
-    labels = []
-    
-    i = 1+k
-    while i < len(sents)-1-k:
-        current_sent = [sents[i]]
-        current_sents = current_sent*(k+1)
-        #next_sents = [sents[i+1]]
-        
-        next_sents = [sents[i+1+j] for j in range(k+1)]
-        
-        label = [0] + [1]*k
-        
-        sents_a += current_sents
-        sents_b += next_sents
-        labels += label
-        
-        i +=1
+# TODO: remove duplicate rows
+all_prev_sents = nsp_a + psp_b
+all_next_sents = nsp_b + psp_a
+all_labs = nsp_labs + psp_labs
 
-    return sents_a, sents_b, labels
+inputs_prev = tokenizer(all_prev_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
+inputs_next = tokenizer(all_next_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
+
+
+
+#%% tokenize inputs 
+inputs_nsp = tokenizer(nsp_a, nsp_b, return_tensors='pt', max_length=512, truncation=True, padding='max_length')
+inputs_psp = tokenizer(psp_a, psp_b, return_tensors='pt', max_length=512, truncation=True, padding='max_length')
+
+inputs_nsp['labels'] = torch.LongTensor([nsp_labs]).T
+inputs_psp['labels'] = torch.LongTensor([psp_labs]).T
+
 
 #%%
+# test 
+test_input_prev = tokenizer(all_prev_sents[:50], return_tensors='pt', max_length=512, truncation=True, padding='max_length')
+test_input_next = tokenizer(all_next_sents[:50], return_tensors='pt', max_length=512, truncation=True, padding='max_length')
+test_labs = torch.LongTensor(all_labs[:50]).T
+#%%
+test_inputs = test_input_prev
+test_inputs['labels'] = test_labs
+test_inputs['input_ids2'] = test_input_next['input_ids']
+test_inputs['token_type_ids2'] = test_input_next['token_type_ids']
+test_inputs['attention_mask2'] = test_input_next['attention_mask']
 
+from dataset import ddDataset
+testdd = ddDataset(test_inputs)
+#%%
+#%%
+from models import BertForForwardBackwardPrediction
 
-def sample_negative_previous(sents, k):
-    '''
+model = BertForNextSentencePrediction.from_pretrained('bert-base-uncased')
+fbmodel = BertForForwardBackwardPrediction()
+loader = torch.utils.data.DataLoader(testdd, batch_size=16, shuffle=True)
 
-    Parameters
-    ----------
-    sents : list
-        list of utterances in dialogues
-    k : int
-        negative:positive
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+# and move our model over to the selected device
+fbmodel.to(device)
 
-    Returns
-    -------
-    sents_a : TYPE
-        DESCRIPTION.
-    sents_b : TYPE
-        DESCRIPTION.
-    labels : TYPE
-        DESCRIPTION.
+from transformers import AdamW
 
-    '''
-    
-    sents_a = []
-    sents_b = []
-    labels = []
-    
-    i = 1+k
-    while i <len(sents)-1-k:
-        current_sent = [sents[i]]
-        current_sents = current_sent*(k+1)
-        #next_sents = [sents[i+1]]
-        
-        prev_sents = [sents[i-1-j] for j in range(k+1)]
-        
-        label = [0] + [1]*k
-        
-        sents_a += current_sents
-        sents_b += prev_sents 
-        labels += label
-        
-        i +=1
+# activate training mode
+fbmodel.train()
+# initialize optimizer
+optim = AdamW(model.parameters(), lr=5e-6)
 
-    return sents_a, sents_b, labels
 
 #%%
+from tqdm import tqdm  # for our progress bar
 
+epochs = 2
 
-
-
-
-
+for epoch in range(epochs):
+    
+    loop = tqdm(loader, leave=True)
+    for batch in loop:
+       
+        optim.zero_grad()
+       
+        input_ids = [batch['input_ids'].to(device),batch['input_ids2'].to(device)]
+        attention_mask = [batch['attention_mask'].to(device),batch['attention_mask2'].to(device)]
+        token_type_ids = [batch['token_type_ids'].to(device),batch['token_type_ids2'].to(device)]
+        labels = batch['labels'].to(device)
+        #import pdb; pdb.set_trace()
+        
+        outputs = fbmodel(input_ids, attention_mask=attention_mask,
+                        token_type_ids=token_type_ids,
+                        labels=labels)
+        
+        
+        
+        # extract loss
+        loss = outputs.loss
+        # calculate loss for every parameter that needs grad update
+        loss.backward()
+        # update parameters
+        optim.step()
+        # print relevant info to progress bar
+        loop.set_description(f'Epoch {epoch}')
+        loop.set_postfix(loss=loss.item())
+        import pdb; pdb.set_trace()
 
