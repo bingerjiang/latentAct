@@ -64,13 +64,20 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
        #     )
        #     labels = kwargs.pop("next_sentence_label")
 
-        #return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        prev_sents, next_sents = input_ids[0], input_ids[1]
-        
+        prev_sents_ids, next_sents_ids = input_ids[0], input_ids[1]
+        prev_attention_mask, next_attention_mask = attention_mask[0], attention_mask[1]
+        prev_type_ids, next_type_ids = token_type_ids[0], token_type_ids[1]
+
         # TODO: check input argument
-        prev_outs = self.forward_function(prev_sents)
-        next_outs = self.backward_function(next_sents)
+        prev_outs = self.forward_function(prev_sents_ids,
+                                          attention_mask = prev_attention_mask,
+                                          token_type_ids = prev_type_ids)
+        next_outs = self.backward_function(next_sents_ids,
+                                          attention_mask = next_attention_mask,
+                                          token_type_ids = next_type_ids)
+        
         outputs = torch.cat((prev_outs, next_outs), 1)
 
         pooled_output_prev = prev_outs[1]
@@ -95,29 +102,7 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
             attentions=outputs.attentions,
         )
     
-    def Forward_function(
-            self,
-            input_ids,
-            attention_mask,
-            token_type_ids,
-            position_ids,
-            head_mask,
-            inputs_embeds,
-            output_attentions,
-            output_hidden_states,
-            return_dict):
-        
-        outputs = self.bert(
-            input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-        )
+
         
         
 class ForwardModel(nn.Module):
