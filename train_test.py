@@ -64,7 +64,7 @@ testdd = ddDataset(test_inputs)
 
 
 model = BertForNextSentencePrediction.from_pretrained('bert-base-uncased')
-fbmodel = BertForForwardBackwardPrediction()
+fbmodel = BertForForwardBackwardPrediction(model.config)
 loader = torch.utils.data.DataLoader(testdd, batch_size=16, shuffle=True)
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
