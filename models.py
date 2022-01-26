@@ -9,7 +9,7 @@ import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
-from transformers import  BertForPreTraining
+from transformers import  BertForPreTraining， BertForSequenceClassification
 from transformers.models.bert.modeling_bert import BertPreTrainedModel
 from transformers.modeling_outputs import NextSentencePredictorOutput
 
@@ -36,8 +36,8 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
 
         # self.bert = BertModel(config)
         self.cls = nn.Linear(768, 2)
-        self.forward_function = BertForPreTraining.from_pretrained('bert-base-uncased')
-        self.backward_function = BertForPreTraining.from_pretrained('bert-base-uncased')
+        self.forward_function = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+        self.backward_function = BertForSequenceClassification.from_pretrained('bert-base-uncased')
 
         # Initialize weights and apply final processing
         #self.post_init()
