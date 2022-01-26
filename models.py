@@ -42,7 +42,7 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         self.backward_function = BertForSequenceClassification.from_pretrained('bert-base-uncased')
 
         # Initialize weights and apply final processing
-        self.post_init()
+        #self.post_init()
 
     #@add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     #@replace_return_docstrings(output_type=NextSentencePredictorOutput, config_class=_CONFIG_FOR_DOC)
