@@ -13,6 +13,8 @@ from transformers import  BertForPreTraining
 from transformers.models.bert.modeling_bert import BertPreTrainedModel
 from transformers.modeling_outputs import NextSentencePredictorOutput
 
+import pdb
+
 
 '''
 class BertOnlyNSPHead(nn.Module):
@@ -77,7 +79,7 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         next_outs = self.backward_function(next_sents_ids,
                                           attention_mask = next_attention_mask,
                                           token_type_ids = next_type_ids)
-        
+        pdb.set_trace()
         outputs = torch.cat((prev_outs, next_outs), 1)
 
         pooled_output_prev = prev_outs[1]
