@@ -35,7 +35,7 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         super().__init__(config)
 
         # self.bert = BertModel(config)
-        self.cls = nn.Linear(768, 2)
+        self.cls = nn.Linear(768*2, 2)
         config = BertConfig.from_pretrained('bert-base-uncased')    # Download configuration from S3 and cache.
         self.bert = AutoModel.from_config(config)  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
         self.forward_function = BertForSequenceClassification.from_pretrained('bert-base-uncased')
