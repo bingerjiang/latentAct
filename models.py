@@ -110,8 +110,8 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         return NextSentencePredictorOutput(
             loss=forward_backward_loss,
             logits=seq_relationship_scores,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
+            hidden_states=prev_outs.hidden_states,
+            attentions=prev_outs.attentions,
         )
     
 
