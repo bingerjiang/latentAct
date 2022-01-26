@@ -48,8 +48,8 @@ all_next_sents = nsp_b + psp_a
 all_labs = nsp_labs + psp_labs
 
 
-test_input_prev = tokenizer(all_prev_sents[:50], return_tensors='pt', max_length=512, truncation=True, padding='max_length')
-test_input_next = tokenizer(all_next_sents[:50], return_tensors='pt', max_length=512, truncation=True, padding='max_length')
+test_input_prev = tokenizer(all_prev_sents[:50], return_tensors='pt', max_length=256, truncation=True, padding='max_length')
+test_input_next = tokenizer(all_next_sents[:50], return_tensors='pt', max_length=256, truncation=True, padding='max_length')
 test_labs = torch.LongTensor(all_labs[:50]).T
 #%%
 test_inputs = test_input_prev
