@@ -90,12 +90,12 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         
         
         
-        pdb.set_trace()
+        #pdb.set_trace()
         #outputs = torch.cat((prev_outs, next_outs), 1)
 
 
         pooled_outs = torch.cat((prev_pooler, next_pooler), 1)
-        pdb.set_trace()
+        #pdb.set_trace()
         seq_relationship_scores = self.cls(pooled_outs)
 
         forward_backward_loss = None
