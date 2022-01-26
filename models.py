@@ -9,7 +9,7 @@ import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
-from transformers import  BertForPreTraining， BertForSequenceClassification
+from transformers import  BertForPreTraining, BertForSequenceClassification
 from transformers.models.bert.modeling_bert import BertPreTrainedModel
 from transformers.modeling_outputs import NextSentencePredictorOutput
 
