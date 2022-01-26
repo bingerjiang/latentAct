@@ -9,8 +9,8 @@ import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
-from transformers import  BertForPreTraining, BertForSequenceClassification
-from transformers.models.bert.modeling_bert import BertPreTrainedModel
+from transformers import  BertForPreTraining, BertForSequenceClassification, AutoModel, BertConfig
+from transformers.models.bert.modeling_bert import BertPreTrainedModel, BertModel
 from transformers.modeling_outputs import NextSentencePredictorOutput
 
 import pdb
@@ -36,11 +36,13 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
 
         # self.bert = BertModel(config)
         self.cls = nn.Linear(768, 2)
+        config = BertConfig.from_pretrained('bert-base-uncased')    # Download configuration from S3 and cache.
+        self.bert = AutoModel.from_config(config)  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
         self.forward_function = BertForSequenceClassification.from_pretrained('bert-base-uncased')
         self.backward_function = BertForSequenceClassification.from_pretrained('bert-base-uncased')
 
         # Initialize weights and apply final processing
-        #self.post_init()
+        self.post_init()
 
     #@add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
     #@replace_return_docstrings(output_type=NextSentencePredictorOutput, config_class=_CONFIG_FOR_DOC)
@@ -73,10 +75,10 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         prev_type_ids, next_type_ids = token_type_ids[0], token_type_ids[1]
 
         # TODO: check input argument
-        prev_outs = self.forward_function(prev_sents_ids,
+        prev_outs = self.bert(prev_sents_ids,
                                           attention_mask = prev_attention_mask,
                                           token_type_ids = prev_type_ids)
-        next_outs = self.backward_function(next_sents_ids,
+        next_outs = self.bert(next_sents_ids,
                                           attention_mask = next_attention_mask,
                                           token_type_ids = next_type_ids)
         pdb.set_trace()
