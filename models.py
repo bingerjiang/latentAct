@@ -81,13 +81,21 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         next_outs = self.bert(next_sents_ids,
                                           attention_mask = next_attention_mask,
                                           token_type_ids = next_type_ids)
+        
+        
+        prev_last_hid = prev_outs[0]
+        prev_pooler = prev_outs[1]
+        next_lat_hid = next_outs[0]
+        next_pooler = next_outs[1]
+        
+        
+        
         pdb.set_trace()
-        outputs = torch.cat((prev_outs, next_outs), 1)
+        #outputs = torch.cat((prev_outs, next_outs), 1)
 
-        pooled_output_prev = prev_outs[1]
-        pooled_output_next = next_outs[1]
-        pooled_outs = torch.cat((pooled_output_prev, pooled_output_next), 1)
 
+        pooled_outs = torch.cat((prev_pooler, next_pooler), 1)
+        pdb.set_trace()
         seq_relationship_scores = self.cls(pooled_outs)
 
         forward_backward_loss = None
