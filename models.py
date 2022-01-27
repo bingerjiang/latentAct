@@ -36,8 +36,10 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
 
         # self.bert = BertModel(config)
         
-        config = BertConfig.from_pretrained('bert-base-uncased')    # Download configuration from S3 and cache.
-        self.bert = AutoModel.from_config(config)  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
+        config = BertConfig.from_pretrained('bert-base-uncased')    
+        self.bert = AutoModel.from_config(config)
+        self.z_forward = nn.Linear(config.hidden_size, config.hidden_size)
+        self.z_backward = nn.Linear(config.hidden_size, config.hidden_size)
         self.cls = nn.Linear(config.hidden_size*2, 2)
         
         # self.forward_function = BertForSequenceClassification.from_pretrained('bert-base-uncased')
@@ -91,12 +93,10 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         next_pooler = next_outs[1]
         
         
-        
-        #pdb.set_trace()
-        #outputs = torch.cat((prev_outs, next_outs), 1)
-
-
-        pooled_outs = torch.cat((prev_pooler, next_pooler), 1)
+        ## get forward function and backward function
+        prev_forward =self.z_forward(prev_pooler)
+        next_backward = self.z_backward(next_pooler)
+        pooled_outs = torch.cat((prev_forward, next_backward), 1)
         #pdb.set_trace()
         seq_relationship_scores = self.cls(pooled_outs)
 
