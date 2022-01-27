@@ -15,7 +15,7 @@ from datasets import load_dataset
 from transformers import AutoTokenizer
 from transformers import DataCollatorWithPadding
 from transformers import AdamW
-from transformers import BertForNextSentencePrediction
+from transformers import BertForNextSentencePrediction, AutoModel
 
 
 
@@ -57,7 +57,6 @@ test_inputs['labels'] = test_labs
 test_inputs['input_ids2'] = test_input_next['input_ids']
 test_inputs['token_type_ids2'] = test_input_next['token_type_ids']
 test_inputs['attention_mask2'] = test_input_next['attention_mask']
-
 
 
 testdd = ddDataset(test_inputs)
@@ -102,4 +101,4 @@ for epoch in range(epochs):
         # print relevant info to progress bar
         loop.set_description(f'Epoch {epoch}')
         loop.set_postfix(loss=loss.item())
-        pdb.set_trace()
+        #pdb.set_trace()
