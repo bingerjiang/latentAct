@@ -79,18 +79,20 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         prev_type_ids, curr_type_ids, next_type_ids = token_type_ids[0], token_type_ids[1], token_type_ids[2]
 
         # TODO: check input argument
-        prev_last_hid, prev_pooler = self.bert(prev_sents_ids,
+        prev_out = self.bert(prev_sents_ids,
                                           attention_mask = prev_attention_mask,
                                           token_type_ids = prev_type_ids)
-        next_last_hid, prev_pooler = self.bert(next_sents_ids,
+        next_out = self.bert(next_sents_ids,
                                           attention_mask = next_attention_mask,
                                           token_type_ids = next_type_ids)
-        curr_last_hid, curr_pooler = self.bert(curr_sents_ids,
+        curr_out = self.bert(curr_sents_ids,
                                           attention_mask = curr_attention_mask,
                                           token_type_ids = curr_type_ids)
         
-        
-        pdb.set_trace()
+        prev_last_hid, prev_pooler = prev_out['last_hidden_out'],prev_out['pooler_output']
+        next_last_hid, next_pooler = next_out['last_hidden_state'], next_out['pooler_output']
+        curr_last_hid, curr_pooler = curr_out['last_hidden_state'], curr_out['pooler_output']
+        #pdb.set_trace()
         
         ## get forward function and backward function
         prev_forward =self.z_forward(prev_pooler)
