@@ -38,13 +38,17 @@ dd_train = dataset['train']
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
 dialogs = dd_train['dialog']
+dialogs_eval = dataset['validation']['dialog']
 
 dialogs = dialogs[:50]
+dialogs_eval = dialogs_eval[:50]
 
 dialogs_flat = [utt for dialog in dialogs for utt in dialog]
 current_sents, prev_sents, next_sents = constructPositives(dialogs)
+current_sentseval, prev_sents_eval, next_sents_eval = constructPositives(dialogs_eval)
 
 bag_of_sents_tok = tokenizer(dialogs_flat, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
+
 current_sents_tok = tokenizer(current_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
 prev_sents_tok = tokenizer(prev_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
 next_sents_tok = tokenizer(next_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
@@ -80,7 +84,7 @@ loader = torch.utils.data.DataLoader(ddinput, batch_size=2, shuffle=True)
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 fbmodel.to(device)
 fbmodel.train()
-optim = AdamW(model.parameters(), lr=5e-6)
+optim = AdamW(fbmodel.parameters(), lr=5e-6)
 
 epochs = 2
 k =10
@@ -128,6 +132,7 @@ for epoch in range(epochs):
         batch['token_type_ids'] = batch['token_type_ids'].repeat((k+1),1)
 
         batch['labels']=torch.cat((batch['labels'],torch.LongTensor(neg_labs).T), 0)
+        
         # positive samples
         input_ids = [batch['input_ids_prev'].to(device),
                      batch['input_ids'].to(device),
@@ -145,19 +150,19 @@ for epoch in range(epochs):
                         token_type_ids=token_type_ids,
                         labels=labels)
 
-        
-        # extract loss
         loss = outputs.loss
         total_loss+= loss
-        # calculate loss for every parameter that needs grad update
+
         loss.backward()
-        # update parameters
         optim.step()
-        # print relevant info to progress bar
+
         loop.set_description(f'Epoch {epoch}')
         loop.set_postfix(loss=loss.item())
-        #pdb.set_trace()
+
     print('training loss: ', total_loss/len(inputs['labels']))
+    
+    # eval
+    print('eval loss: ', )
     
 #%%
 k = 10
