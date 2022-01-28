@@ -87,6 +87,7 @@ k =10
 for epoch in range(epochs):
     
     loop = tqdm(loader, leave=True)
+    total_loss = 0
     for batch in loop:
        
         optim.zero_grad()
@@ -121,7 +122,6 @@ for epoch in range(epochs):
                 torch.cat((batch['token_type_ids_next'],
                            bag_of_sents_tok['token_type_ids'][list(sample_neg_next_idx)]),0)
 
-            print(batch['input_ids_next'].shape)
             i += 1
         batch['input_ids'] = batch['input_ids'].repeat((k+1),1)
         batch['attention_mask'] = batch['attention_mask'].repeat((k+1),1)
@@ -144,11 +144,11 @@ for epoch in range(epochs):
         outputs = fbmodel(input_ids, attention_mask=attention_mask,
                         token_type_ids=token_type_ids,
                         labels=labels)
-        
-        
+
         
         # extract loss
         loss = outputs.loss
+        total_loss+= loss
         # calculate loss for every parameter that needs grad update
         loss.backward()
         # update parameters
@@ -157,6 +157,8 @@ for epoch in range(epochs):
         loop.set_description(f'Epoch {epoch}')
         loop.set_postfix(loss=loss.item())
         #pdb.set_trace()
+    print('training loss: ', total_loss/len(inputs['labels']))
+    
 #%%
 k = 10
 
