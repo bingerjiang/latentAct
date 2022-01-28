@@ -102,18 +102,24 @@ for epoch in range(epochs):
             sample_neg_next_idx = RandomSampler(dialogs_flat, replacement= True, 
                                            num_samples=k)
             
-            batch['input_ids_prev']=torch.cat((batch['input_ids_prev'],
-                                              bag_of_sents_tok['input_ids'][list(sample_neg_prev_idx)]),0)
-            batch['input_ids_next']=torch.cat((batch['input_ids_next'],
-                                               bag_of_sents_tok['input_ids'][list(sample_neg_next_idx)]),0)
-            batch['attention_mask_prev']=torch.cat((batch['attention_mask_prev'],
-                                                    bag_of_sents_tok['attention_mask'][list(sample_neg_prev_idx)]),0)
-            batch['attention_mask_next']=torch.cat((batch['attention_mask_next'],
-                                                    bag_of_sents_tok['attention_mask'][list(sample_neg_next_idx)]),0)
-            batch['token_type_ids_prev']=torch.cat((batch['token_type_ids_prev'],
-                                                    bag_of_sents_tok['token_type_ids'][list(sample_neg_prev_idx)]),0)
-            batch['token_type_ids_next']=torch.cat((batch['token_type_ids_next'],
-                                                    bag_of_sents_tok['token_type_ids'][list(sample_neg_next_idx)]),0)
+            batch['input_ids_prev']=\
+                torch.cat((batch['input_ids_prev'],
+                           bag_of_sents_tok['input_ids'][list(sample_neg_prev_idx)]),0)
+            batch['input_ids_next']=\
+                torch.cat((batch['input_ids_next'],
+                           bag_of_sents_tok['input_ids'][list(sample_neg_next_idx)]),0)
+            batch['attention_mask_prev']=\
+                torch.cat((batch['attention_mask_prev'],
+                           bag_of_sents_tok['attention_mask'][list(sample_neg_prev_idx)]),0)
+            batch['attention_mask_next']=\
+                torch.cat((batch['attention_mask_next'],
+                           bag_of_sents_tok['attention_mask'][list(sample_neg_next_idx)]),0)
+            batch['token_type_ids_prev']=\
+                torch.cat((batch['token_type_ids_prev'],
+                           bag_of_sents_tok['token_type_ids'][list(sample_neg_prev_idx)]),0)
+            batch['token_type_ids_next']=\
+                torch.cat((batch['token_type_ids_next'],
+                           bag_of_sents_tok['token_type_ids'][list(sample_neg_next_idx)]),0)
 
             print(batch['input_ids_next'].shape)
             i += 1
@@ -134,7 +140,7 @@ for epoch in range(epochs):
                           batch['token_type_ids_next'].to(device)]
         labels = batch['labels'].to(device)
         
-        pdb.set_trace()
+        #pdb.set_trace()
         outputs = fbmodel(input_ids, attention_mask=attention_mask,
                         token_type_ids=token_type_ids,
                         labels=labels)
