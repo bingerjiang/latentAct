@@ -74,29 +74,35 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        prev_sents_ids, next_sents_ids = input_ids[0], input_ids[1]
-        prev_attention_mask, next_attention_mask = attention_mask[0], attention_mask[1]
-        prev_type_ids, next_type_ids = token_type_ids[0], token_type_ids[1]
+        prev_sents_ids,curr_sents_ids, next_sents_ids = input_ids[0], input_ids[1], input_ids[2]
+        prev_attention_mask, curr_attention_mask, next_attention_mask = attention_mask[0], attention_mask[1],attention_mask[2]
+        prev_type_ids, curr_type_ids, next_type_ids = token_type_ids[0], token_type_ids[1], token_type_ids[2]
 
         # TODO: check input argument
-        prev_outs = self.bert(prev_sents_ids,
+        prev_last_hid, prev_pooler = self.bert(prev_sents_ids,
                                           attention_mask = prev_attention_mask,
                                           token_type_ids = prev_type_ids)
-        next_outs = self.bert(next_sents_ids,
+        next_last_hid, prev_pooler = self.bert(next_sents_ids,
                                           attention_mask = next_attention_mask,
                                           token_type_ids = next_type_ids)
+        curr_last_hid, curr_pooler = self.bert(curr_sents_ids,
+                                          attention_mask = curr_attention_mask,
+                                          token_type_ids = curr_type_ids)
         
         
-        prev_last_hid = prev_outs[0]
-        prev_pooler = prev_outs[1]
-        next_lat_hid = next_outs[0]
-        next_pooler = next_outs[1]
         
         
         ## get forward function and backward function
         prev_forward =self.z_forward(prev_pooler)
+        curr_backward = self.z_backward(curr_pooler)
+        curr_forward = self.z_forward(curr_pooler)
         next_backward = self.z_backward(next_pooler)
-        pooled_outs = torch.cat((prev_forward, next_backward), 1)
+        
+        forward_pooled_outs = torch.cat((prev_forward, curr_forward), 0)
+        backward_pooled_outs = torch.cat((curr_backward, next_backward), 0)
+        pooled_outs = torch.cat((forward_pooled_outs, backward_pooled_outs),1)
+        
+        labels = labels.repeat(2,1)
         #pdb.set_trace()
         seq_relationship_scores = self.cls(pooled_outs)
 
@@ -112,8 +118,8 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         return NextSentencePredictorOutput(
             loss=forward_backward_loss,
             logits=seq_relationship_scores,
-            hidden_states=prev_outs.hidden_states,
-            attentions=prev_outs.attentions,
+            #hidden_states=prev_outs.hidden_states,
+            #attentions=prev_outs.attentions,
         )
     
 
