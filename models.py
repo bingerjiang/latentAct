@@ -90,7 +90,7 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
                                           token_type_ids = curr_type_ids)
         
         
-        
+        pdb.set_trace()
         
         ## get forward function and backward function
         prev_forward =self.z_forward(prev_pooler)
