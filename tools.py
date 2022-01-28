@@ -89,3 +89,40 @@ def sample_previous(sents, k):
 
     return sents_a, sents_b, labels
 
+#%%
+
+def constructPositives (dataset):
+    '''
+    dataset: list of lists
+    current_sents: not the first of last sent in dialog
+    '''
+    # exclude dialogs that only have 2 utterances
+    long_dialogs = [el for el in dataset if len(el)>2]
+    
+    current_sents = []
+    prev_sents = []
+    next_sents = []
+    
+    for dialog in long_dialogs:
+        i = 1
+        while i < len(dialog)-1:
+            current_sents.append(dialog[i])
+            prev_sents.append(dialog[i-1])
+            next_sents.append(dialog[i+1])
+           
+            i +=1
+   
+    return current_sents, prev_sents, next_sents
+
+
+
+
+
+
+
+
+
+
+
+
+
