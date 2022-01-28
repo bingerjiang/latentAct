@@ -89,7 +89,7 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
                                           attention_mask = curr_attention_mask,
                                           token_type_ids = curr_type_ids)
         
-        prev_last_hid, prev_pooler = prev_out['last_hidden_out'],prev_out['pooler_output']
+        prev_last_hid, prev_pooler = prev_out['last_hidden_state'],prev_out['pooler_output']
         next_last_hid, next_pooler = next_out['last_hidden_state'], next_out['pooler_output']
         curr_last_hid, curr_pooler = curr_out['last_hidden_state'], curr_out['pooler_output']
         #pdb.set_trace()
