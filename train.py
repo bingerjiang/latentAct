@@ -104,6 +104,7 @@ for epoch in range(epochs):
     
     loop = tqdm(loader, leave=True)
     total_loss = 0
+    n_processed = 0
     for batch in loop:
        
         optim.zero_grad()
@@ -170,8 +171,10 @@ for epoch in range(epochs):
 
         loop.set_description(f'Epoch {epoch}')
         loop.set_postfix(loss=loss.item())
-
-    print('training loss: ', total_loss/len(inputs['labels']))
+        n_processed += len(batch['input_ids'])*2 
+        # *2 because the inputs is re-organized into 2* pairs
+        # (prev, curr); (curr, next)
+    print('training loss: ', total_loss/n_processed))
     
     # eval
     print('eval loss: ', )
