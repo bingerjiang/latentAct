@@ -53,7 +53,7 @@ def evaluation(model, loader_eval, device ):
         loss = outputs.loss
         total_loss+= loss.item()
 
-        loop.set_description(f'Epoch {epoch}')
+        #loop.set_description(f'Epoch {epoch}')
         loop.set_postfix(loss=loss.item())
         n_processed += len(batch['input_ids'])*2 
         # *2 because the inputs is re-organized into 2* pairs
