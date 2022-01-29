@@ -174,7 +174,7 @@ for epoch in range(epochs):
         n_processed += len(batch['input_ids'])*2 
         # *2 because the inputs is re-organized into 2* pairs
         # (prev, curr); (curr, next)
-    print('training loss: ', total_loss/n_processed))
+    print('training loss: ', total_loss/n_processed)
     
     # eval
     print('eval loss: ', )
