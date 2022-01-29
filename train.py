@@ -113,7 +113,7 @@ for epoch in range(epochs):
         
         i = 0
         negatives = []
-        while i < batch_size:
+        while i < batch_size_train:
             sample_neg_prev_idx = RandomSampler(dialogs_flat, replacement= True, 
                                            num_samples=k)
             sample_neg_next_idx = RandomSampler(dialogs_flat, replacement= True, 
