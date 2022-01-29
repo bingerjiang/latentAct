@@ -46,7 +46,7 @@ def evaluation(model, loader_eval, device ):
         labels = batch['labels'].to(device)
         
         #pdb.set_trace()
-        outputs = fbmodel(input_ids, attention_mask=attention_mask,
+        outputs = model(input_ids, attention_mask=attention_mask,
                         token_type_ids=token_type_ids,
                         labels=labels)
 
