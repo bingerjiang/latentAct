@@ -84,7 +84,7 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         labels = labels.repeat(2,1)
 
         seq_relationship_scores = self.cls(pooled_outs)
-        pdb.set_trace()
+        #pdb.set_trace()
         forward_backward_loss = None
         if labels is not None:
             loss_fct = CrossEntropyLoss()
