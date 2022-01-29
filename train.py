@@ -51,7 +51,7 @@ curr_sents, prev_sents, next_sents = constructPositives(dialogs)
 curr_sents_eval, prev_sents_eval, next_sents_eval = constructPositives(dialogs_eval)
 
 
-ddtrain = constructInputs(prev_sents, curr_sents, next_sents, dataset, 'dailydialog')
+ddtrain = constructInputs(prev_sents, curr_sents, next_sents, 'dailydialog')
 ddeval = constructInputs(curr_sents_eval, prev_sents_eval, next_sents_eval, 'dailydialog')
 
 #test_input_prev = tokenizer(all_prev_sents[:50], return_tensors='pt', max_length=256, truncation=True, padding='max_length')
