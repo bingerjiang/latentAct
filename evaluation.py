@@ -8,6 +8,7 @@ Created on Sat Jan 29 11:21:18 2022
 import datasets, transformers, torch
 from tqdm import tqdm
 import pdb
+import time
 
 from datasets import load_dataset
 from transformers import AutoTokenizer
@@ -21,14 +22,14 @@ from tools import *
 from models import BertForForwardBackwardPrediction
 from dataset import ddDataset
 
-
-def evaluation(model, loader_eval, device ):
+@torch.no_grad()
+def evaluation(model, loader_eval, device, epoch ):
     
     model.eval()
     loop = tqdm(loader_eval, leave=True)
     total_loss = 0
     n_processed = 0
-    
+    epoch_start_time = time.time()
     for batch in loop:
        
         
@@ -59,7 +60,14 @@ def evaluation(model, loader_eval, device ):
         # *2 because the inputs is re-organized into 2* pairs
         # (prev, curr); (curr, next)
     print('eval loss: ', total_loss/n_processed)
-    return outputs.loss
+    print(
+        '| end of epoch {:3d} | time: {:5.2f}s |'
+        'valid loss {:8.2f}'.format(
+            epoch,
+            (time.time() - epoch_start_time),
+            total_loss/n_processed)
+    )
+    return total_loss/n_processed
 
 
 

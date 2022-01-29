@@ -14,7 +14,7 @@ Created on Tue Jan 25 21:21:50 2022
 @author: binger
 """
 
-
+import time
 import datasets, transformers, torch
 from tqdm import tqdm
 import pdb
@@ -33,12 +33,17 @@ from dataset import ddDataset
 from evaluation import evaluation
 
 #%%
+#logger = setup_logger('{}'.format('model.pt'))
+
+
+#%%
 dataset = load_dataset("daily_dialog")
 dd_train = dataset['train']
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
 dialogs = dd_train['dialog']
 dialogs_eval = dataset['validation']['dialog']
+dialog_test = dataset['test']['dialog']
 
 dialogs = dialogs[:20]
 dialogs_eval = dialogs_eval[:20]
@@ -98,7 +103,11 @@ fbmodel.to(device)
 fbmodel.train()
 optim = AdamW(fbmodel.parameters(), lr=5e-6)
 
-epochs = 2
+model_path = './model_checkpoints/'
+lr_decay = 10
+best_eval_loss = 100000
+
+epochs = 2 
 k =10
 for epoch in range(epochs):
     
@@ -164,7 +173,7 @@ for epoch in range(epochs):
                         labels=labels)
 
         loss = outputs.loss
-        total_loss+= loss
+        total_loss+= loss.item()
 
         loss.backward()
         optim.step()
@@ -177,16 +186,29 @@ for epoch in range(epochs):
     print('training loss: ', total_loss/n_processed)
     
     # eval
-    eval_outputs = evaluation(fbmodel, loader_eval, device)
+    eval_loss = evaluation(fbmodel, loader_eval, device, epoch)
+    
+    torch.save(model, model_path + '.epoch_{}'.format(epoch))
+    # Save the model if the validation loss is the best we've seen so far.
+    if  eval_outputs < best_eval_loss:
+        torch.save(model, model_path)
+        best_eval_loss = eval_loss
+    else:
+        # Anneal the learning rate if no improvement has been seen in the
+        # validation dataset.
+        lr /= lr_decay
+    
+    
+# test
     
 #%%
-k = 10
+# k = 10
 
-nsp_a, nsp_b, nsp_labs = sample_next(dialogs_flat, k)
-psp_a, psp_b, psp_labs = sample_previous(dialogs_flat, k)
+# nsp_a, nsp_b, nsp_labs = sample_next(dialogs_flat, k)
+# psp_a, psp_b, psp_labs = sample_previous(dialogs_flat, k)
 
 
-# TODO: remove duplicate rows
-all_prev_sents = nsp_a + psp_b
-all_next_sents = nsp_b + psp_a
-all_labs = nsp_labs + psp_labs
+# # TODO: remove duplicate rows
+# all_prev_sents = nsp_a + psp_b
+# all_next_sents = nsp_b + psp_a
+# all_labs = nsp_labs + psp_labs

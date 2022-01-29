@@ -10,6 +10,8 @@ import datasets, transformers, torch
 from transformers import AutoTokenizer
 from dataset import ddDataset
 
+import logging
+
 def sample_next(sents, k):
     '''
     Parameters
@@ -150,6 +152,26 @@ def constructInputs (prev_sents, curr_sents, next_sents, dataset):
 
 
 
+def setup_logger(logger_name):
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.DEBUG)
+
+    # create console handler with a higher log level
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.WARNING)
+
+    # create file handler which logs even debug messages
+    fh = logging.FileHandler('log/%s.log' % logger_name)
+    fh.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    # ch.setFormatter(formatter)
+
+    logger.addHandler(ch)
+    logger.addHandler(fh)
+
+    return logger
 
 
 
