@@ -44,42 +44,54 @@ dialogs = dialogs[:50]
 dialogs_eval = dialogs_eval[:50]
 
 dialogs_flat = [utt for dialog in dialogs for utt in dialog]
-current_sents, prev_sents, next_sents = constructPositives(dialogs)
-current_sentseval, prev_sents_eval, next_sents_eval = constructPositives(dialogs_eval)
 
 bag_of_sents_tok = tokenizer(dialogs_flat, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
 
-current_sents_tok = tokenizer(current_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
-prev_sents_tok = tokenizer(prev_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
-next_sents_tok = tokenizer(next_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
-labels = torch.LongTensor([0]*len(current_sents)).T
+curr_sents, prev_sents, next_sents = constructPositives(dialogs)
+curr_sents_eval, prev_sents_eval, next_sents_eval = constructPositives(dialogs_eval)
+
+
+ddtrain = constructInputs(prev_sents, curr_sents, next_sents, dataset, 'dailydialog')
+ddeval = constructInputs(curr_sents_eval, prev_sents_eval, next_sents_eval, 'dailydialog')
 
 #test_input_prev = tokenizer(all_prev_sents[:50], return_tensors='pt', max_length=256, truncation=True, padding='max_length')
 #test_input_next = tokenizer(all_next_sents[:50], return_tensors='pt', max_length=256, truncation=True, padding='max_length')
 #test_labs = torch.LongTensor(all_labs[:50]).T
 #%%
-inputs = current_sents_tok
 
-inputs['input_ids_prev'] = prev_sents_tok['input_ids']
-inputs['input_ids_next'] = next_sents_tok['input_ids']
+####### moved to function constructInputs #######
 
-inputs['token_type_ids_prev'] = prev_sents_tok['token_type_ids']
-inputs['token_type_ids_next'] = next_sents_tok['token_type_ids']
+# current_sents_tok = tokenizer(current_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
+# prev_sents_tok = tokenizer(prev_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
+# next_sents_tok = tokenizer(next_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
+# labels = torch.LongTensor([0]*len(current_sents)).T
+
+# inputs = current_sents_tok
+
+# inputs['input_ids_prev'] = prev_sents_tok['input_ids']
+# inputs['input_ids_next'] = next_sents_tok['input_ids']
+
+# inputs['token_type_ids_prev'] = prev_sents_tok['token_type_ids']
+# inputs['token_type_ids_next'] = next_sents_tok['token_type_ids']
 
 
-inputs['attention_mask_prev'] = prev_sents_tok['attention_mask']
-inputs['attention_mask_next'] = next_sents_tok['attention_mask']
+# inputs['attention_mask_prev'] = prev_sents_tok['attention_mask']
+# inputs['attention_mask_next'] = next_sents_tok['attention_mask']
 
-inputs['labels'] = labels
+# inputs['labels'] = labels
 
-ddinput = ddDataset(inputs)
+# ddinput = ddDataset(inputs)
+####### moved to function constructInputs #######
 
 #%%
 model = AutoModel.from_pretrained('bert-base-uncased')
 # originally used BertForNextSentencePrediction
 fbmodel = BertForForwardBackwardPrediction(model.config)
-batch_size=2
-loader = torch.utils.data.DataLoader(ddinput, batch_size=2, shuffle=True)
+batch_size_train=2
+batch_size_eval = 16
+
+loader = torch.utils.data.DataLoader(ddtrain, batch_size=batch_size_train, shuffle=True)
+loader_eval = torch.utils.data.DataLoader(ddeval, batch_size=batch_size_eval, shuffle=True)
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 fbmodel.to(device)
