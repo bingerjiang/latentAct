@@ -45,8 +45,8 @@ dialogs = dd_train['dialog']
 dialogs_eval = dataset['validation']['dialog']
 dialog_test = dataset['test']['dialog']
 
-dialogs = dialogs[:20]
-dialogs_eval = dialogs_eval[:20]
+#dialogs = dialogs[:20]
+#dialogs_eval = dialogs_eval[:20]
 
 dialogs_flat = [utt for dialog in dialogs for utt in dialog]
 
@@ -101,14 +101,14 @@ loader_eval = torch.utils.data.DataLoader(ddeval, batch_size=batch_size_eval, sh
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 fbmodel.to(device)
 fbmodel.train()
-optim = AdamW(fbmodel.parameters(), lr=5e-6)
+optim = AdamW(fbmodel.parameters(), lr=5e-5)
 
 model_path = './model_checkpoints/'
 lr_decay = 5
 best_eval_loss = 100000
 
 n_plateau= 0
-epochs = 2 
+epochs = 200 
 k =10
 for epoch in range(epochs):
     
