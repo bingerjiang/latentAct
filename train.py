@@ -40,8 +40,8 @@ tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 dialogs = dd_train['dialog']
 dialogs_eval = dataset['validation']['dialog']
 
-dialogs = dialogs[:50]
-dialogs_eval = dialogs_eval[:50]
+dialogs = dialogs[:20]
+dialogs_eval = dialogs_eval[:20]
 
 dialogs_flat = [utt for dialog in dialogs for utt in dialog]
 

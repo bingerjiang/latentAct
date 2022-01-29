@@ -31,7 +31,6 @@ def evaluation(model, loader_eval ):
     
     for batch in loop:
        
-        optim.zero_grad()
         
        
         # positive samples
