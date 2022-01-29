@@ -104,9 +104,10 @@ fbmodel.train()
 optim = AdamW(fbmodel.parameters(), lr=5e-6)
 
 model_path = './model_checkpoints/'
-lr_decay = 10
+lr_decay = 5
 best_eval_loss = 100000
 
+n_plateau= 0
 epochs = 2 
 k =10
 for epoch in range(epochs):
@@ -193,10 +194,15 @@ for epoch in range(epochs):
     if  eval_loss < best_eval_loss:
         torch.save(fbmodel, model_path + 'model.epoch_{}'.format(epoch))
         best_eval_loss = eval_loss
-    else:
+        n_plateau = 0
+        
+    else if n_plateau >5:
         # Anneal the learning rate if no improvement has been seen in the
         # validation dataset.
         lr /= lr_decay
+        n_plateau = 0
+    else:
+        n_plateau +=1
     
     
 # test
