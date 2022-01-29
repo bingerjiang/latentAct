@@ -177,7 +177,7 @@ for epoch in range(epochs):
     print('training loss: ', total_loss/n_processed)
     
     # eval
-    eval_outputs = evaluation(fbmodel, loader_eval)
+    eval_outputs = evaluation(fbmodel, loader_eval, device)
     
 #%%
 k = 10

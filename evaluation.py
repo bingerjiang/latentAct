@@ -22,7 +22,7 @@ from models import BertForForwardBackwardPrediction
 from dataset import ddDataset
 
 
-def evaluation(model, loader_eval ):
+def evaluation(model, loader_eval, device ):
     
     model.eval()
     loop = tqdm(loader_eval, leave=True)
