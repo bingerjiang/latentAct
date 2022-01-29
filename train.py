@@ -190,7 +190,7 @@ for epoch in range(epochs):
     
     torch.save(model, model_path + '.epoch_{}'.format(epoch))
     # Save the model if the validation loss is the best we've seen so far.
-    if  eval_outputs < best_eval_loss:
+    if  eval_loss < best_eval_loss:
         torch.save(model, model_path)
         best_eval_loss = eval_loss
     else:
