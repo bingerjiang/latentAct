@@ -196,7 +196,7 @@ for epoch in range(epochs):
         best_eval_loss = eval_loss
         n_plateau = 0
         
-    else if n_plateau >5:
+    elif n_plateau >5:
         # Anneal the learning rate if no improvement has been seen in the
         # validation dataset.
         lr /= lr_decay
