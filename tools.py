@@ -114,7 +114,31 @@ def constructPositives (dataset):
    
     return current_sents, prev_sents, next_sents
 
+#%%
+def constructInputs (prev_sents, curr_sents, next_sents, dataset):
+    current_sents_tok = tokenizer(curr_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
+    prev_sents_tok = tokenizer(prev_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
+    next_sents_tok = tokenizer(next_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
+    labels = torch.LongTensor([0]*len(curr_sents)).T
+    
+    inputs = current_sents_tok
 
+    inputs['input_ids_prev'] = prev_sents_tok['input_ids']
+    inputs['input_ids_next'] = next_sents_tok['input_ids']
+
+    inputs['token_type_ids_prev'] = prev_sents_tok['token_type_ids']
+    inputs['token_type_ids_next'] = next_sents_tok['token_type_ids']
+
+
+    inputs['attention_mask_prev'] = prev_sents_tok['attention_mask']
+    inputs['attention_mask_next'] = next_sents_tok['attention_mask']
+
+    inputs['labels'] = labels
+    
+    if dataset =='dailydialog':
+        initiated_inputs = ddDataset(inputs)
+    
+    return initiated_inputs
 
 
 
