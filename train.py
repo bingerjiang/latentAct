@@ -87,8 +87,8 @@ ddeval = constructInputs(curr_sents_eval, prev_sents_eval, next_sents_eval, 'dai
 model = AutoModel.from_pretrained('bert-base-uncased')
 # originally used BertForNextSentencePrediction
 fbmodel = BertForForwardBackwardPrediction(model.config)
-batch_size_train=2
-batch_size_eval = 16
+batch_size_train=1
+batch_size_eval = 8
 
 loader = torch.utils.data.DataLoader(ddtrain, batch_size=batch_size_train, shuffle=True)
 loader_eval = torch.utils.data.DataLoader(ddeval, batch_size=batch_size_eval, shuffle=True)
