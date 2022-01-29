@@ -30,7 +30,7 @@ from torch.utils.data import RandomSampler
 from tools import *
 from models import BertForForwardBackwardPrediction
 from dataset import ddDataset
-
+from evaluation import evaluation
 
 #%%
 dataset = load_dataset("daily_dialog")
@@ -177,7 +177,7 @@ for epoch in range(epochs):
     print('training loss: ', total_loss/n_processed)
     
     # eval
-    print('eval loss: ', )
+    eval_outputs = evaluation(fbmodel, loader_eval)
     
 #%%
 k = 10
