@@ -191,7 +191,7 @@ for epoch in range(epochs):
     #torch.save(fbmodel, model_path + '.epoch_{}'.format(epoch))
     # Save the model if the validation loss is the best we've seen so far.
     if  eval_loss < best_eval_loss:
-        torch.save(fbmodel, model_path + '.epoch_{}'.format(epoch))
+        torch.save(fbmodel, model_path + 'model.epoch_{}'.format(epoch))
         best_eval_loss = eval_loss
     else:
         # Anneal the learning rate if no improvement has been seen in the
