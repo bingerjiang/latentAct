@@ -16,20 +16,7 @@ from transformers.modeling_outputs import NextSentencePredictorOutput
 import pdb
 
 
-'''
-class BertOnlyNSPHead(nn.Module):
-    
-    #Copied from  https://huggingface.co/transformers/v2.0.0/_modules/transformers/modeling_bert.html
-    
-    
-    def __init__(self, config):
-        super(BertOnlyNSPHead, self).__init__()
-        self.seq_relationship = nn.Linear(config.hidden_size, 2)
 
-    def forward(self, pooled_output):
-        seq_relationship_score = self.seq_relationship(pooled_output)
-        return seq_relationship_score
-'''
 class BertForForwardBackwardPrediction(BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
@@ -41,9 +28,6 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         self.z_forward = nn.Linear(config.hidden_size, config.hidden_size)
         self.z_backward = nn.Linear(config.hidden_size, config.hidden_size)
         self.cls = nn.Linear(config.hidden_size*2, 2)
-        
-        # self.forward_function = BertForSequenceClassification.from_pretrained('bert-base-uncased')
-        # self.backward_function = BertForSequenceClassification.from_pretrained('bert-base-uncased')
 
         # Initialize weights and apply final processing
         #self.post_init()
@@ -65,12 +49,6 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         **kwargs,
     ):
 
-       # if "next_sentence_label" in kwargs:
-       #     warnings.warn(
-       #         "The `next_sentence_label` argument is deprecated and will be removed in a future version, use `labels` instead.",
-       #         FutureWarning,
-       #     )
-       #     labels = kwargs.pop("next_sentence_label")
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
@@ -92,7 +70,6 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         prev_last_hid, prev_pooler = prev_out['last_hidden_state'],prev_out['pooler_output']
         next_last_hid, next_pooler = next_out['last_hidden_state'], next_out['pooler_output']
         curr_last_hid, curr_pooler = curr_out['last_hidden_state'], curr_out['pooler_output']
-        #pdb.set_trace()
         
         ## get forward function and backward function
         prev_forward =self.z_forward(prev_pooler)
@@ -105,17 +82,14 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
         pooled_outs = torch.cat((forward_pooled_outs, backward_pooled_outs),1)
         
         labels = labels.repeat(2,1)
-        #pdb.set_trace()
-        seq_relationship_scores = self.cls(pooled_outs)
 
+        seq_relationship_scores = self.cls(pooled_outs)
+        pdb.set_trace()
         forward_backward_loss = None
         if labels is not None:
             loss_fct = CrossEntropyLoss()
             forward_backward_loss = loss_fct(seq_relationship_scores.view(-1, 2), labels.view(-1))
 
-       # if not return_dict:
-       #     output = (seq_relationship_scores,) + outputs[2:]
-       #     return ((forward_backward_loss,) + output) if forward_backward_loss is not None else output
 
         return NextSentencePredictorOutput(
             loss=forward_backward_loss,

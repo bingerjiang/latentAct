@@ -87,7 +87,7 @@ ddeval = constructInputs(curr_sents_eval, prev_sents_eval, next_sents_eval, 'dai
 model = AutoModel.from_pretrained('bert-base-uncased')
 # originally used BertForNextSentencePrediction
 fbmodel = BertForForwardBackwardPrediction(model.config)
-batch_size_train=1
+batch_size_train=2
 batch_size_eval = 8
 
 loader = torch.utils.data.DataLoader(ddtrain, batch_size=batch_size_train, shuffle=True)
@@ -158,7 +158,7 @@ for epoch in range(epochs):
                           batch['token_type_ids_next'].to(device)]
         labels = batch['labels'].to(device)
         
-        #pdb.set_trace()
+        pdb.set_trace()
         outputs = fbmodel(input_ids, attention_mask=attention_mask,
                         token_type_ids=token_type_ids,
                         labels=labels)
