@@ -5,6 +5,11 @@ Created on Mon Jan 24 22:01:37 2022
 
 @author: binger
 """
+import datasets, transformers, torch
+
+from transformers import AutoTokenizer
+from dataset import ddDataset
+
 def sample_next(sents, k):
     '''
     Parameters
