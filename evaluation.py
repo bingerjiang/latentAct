@@ -59,7 +59,7 @@ def evaluation(model, loader_eval, device ):
         # *2 because the inputs is re-organized into 2* pairs
         # (prev, curr); (curr, next)
     print('eval loss: ', total_loss/n_processed)
-    return outputs
+    return outputs.loss
 
 
 
