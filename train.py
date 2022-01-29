@@ -158,7 +158,7 @@ for epoch in range(epochs):
                           batch['token_type_ids_next'].to(device)]
         labels = batch['labels'].to(device)
         
-        pdb.set_trace()
+        #pdb.set_trace()
         outputs = fbmodel(input_ids, attention_mask=attention_mask,
                         token_type_ids=token_type_ids,
                         labels=labels)
