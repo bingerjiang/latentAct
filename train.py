@@ -106,7 +106,7 @@ loader_eval = torch.utils.data.DataLoader(ddeval, batch_size=batch_size_eval, sh
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 fbmodel.to(device)
 fbmodel.train()
-optim = AdamW(fbmodel.parameters(), lr=e-5)
+optim = AdamW(fbmodel.parameters(), lr=1e-5)
 # original 5e-6
 
 lr_decay = 5
@@ -197,7 +197,7 @@ for epoch in range(epochs):
     #torch.save(fbmodel, model_path + '.epoch_{}'.format(epoch))
     # Save the model if the validation loss is the best we've seen so far.
     if  eval_loss < best_eval_loss:
-        torch.save(fbmodel, model_path + 'model.epoch_{}'.format(epoch))
+        torch.save(fbmodel, model_path + 'lr=1e-5_model.epoch_{}'.format(epoch))
         best_eval_loss = eval_loss
         n_plateau = 0
         
