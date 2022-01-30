@@ -89,9 +89,14 @@ ddeval = constructInputs(curr_sents_eval, prev_sents_eval, next_sents_eval, 'dai
 ####### moved to function constructInputs #######
 
 #%%
+model_path = './model_checkpoints/'
+
 model = AutoModel.from_pretrained('bert-base-uncased')
 # originally used BertForNextSentencePrediction
 fbmodel = BertForForwardBackwardPrediction(model.config)
+
+fbmodel = torch.load( model_path+ 'model.epoch_3')
+
 batch_size_train=2
 batch_size_eval = 8
 
@@ -101,9 +106,9 @@ loader_eval = torch.utils.data.DataLoader(ddeval, batch_size=batch_size_eval, sh
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 fbmodel.to(device)
 fbmodel.train()
-optim = AdamW(fbmodel.parameters(), lr=5e-5)
+optim = AdamW(fbmodel.parameters(), lr=e-5)
+# original 5e-6
 
-model_path = './model_checkpoints/'
 lr_decay = 5
 best_eval_loss = 100000
 
@@ -196,7 +201,7 @@ for epoch in range(epochs):
         best_eval_loss = eval_loss
         n_plateau = 0
         
-    elif n_plateau >5:
+    elif n_plateau >2:
         # Anneal the learning rate if no improvement has been seen in the
         # validation dataset.
         lr /= lr_decay
