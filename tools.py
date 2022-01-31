@@ -125,9 +125,9 @@ def constructPositives (dataset):
 def constructInputs (prev_sents, curr_sents, next_sents, dataset):
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
-    current_sents_tok = tokenizer(curr_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
-    prev_sents_tok = tokenizer(prev_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
-    next_sents_tok = tokenizer(next_sents, return_tensors='pt', max_length=256, truncation=True, padding='max_length')
+    current_sents_tok = tokenizer(curr_sents, return_tensors='pt', max_length=128, truncation=True, padding='max_length')
+    prev_sents_tok = tokenizer(prev_sents, return_tensors='pt', max_length=128, truncation=True, padding='max_length')
+    next_sents_tok = tokenizer(next_sents, return_tensors='pt', max_length=128, truncation=True, padding='max_length')
     labels = torch.LongTensor([0]*len(curr_sents)).T
     
     inputs = current_sents_tok
