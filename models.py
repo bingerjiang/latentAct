@@ -90,25 +90,29 @@ class BertForForwardBackwardPrediction(BertPreTrainedModel):
             loss_fct = CrossEntropyLoss()
             forward_backward_loss = loss_fct(seq_relationship_scores.view(-1, 2), labels.view(-1))
 
-
         return NextSentencePredictorOutput(
             loss=forward_backward_loss,
             logits=seq_relationship_scores,
-            #hidden_states=prev_outs.hidden_states,
+            hidden_states=[prev_forward, curr_forward, curr_backward, next_backward],
             #attentions=prev_outs.attentions,
         )
     
 
-        
-        
-class ForwardModel(nn.Module):
+class BertForwardBackwardwithSample(BertPreTrainedModel):
+    '''
+    BertFB model, sample negatives in batch inside model
+    BertForForwardBackwardPrediction: Negs sampled before feeding to model
+    '''
     def __init__(self, config):
-        super().__init__()
+        super().__init__(config)
 
         # self.bert = BertModel(config)
-        self.cls = BertOnlyNSPHead(config)
-        self.forward_function = BertForPreTraining.from_pretrained('bert-base-uncased')
-        ### self.backward_function = BertForPreTraining.from_pretrained('bert-base-uncased')
+        
+        config = BertConfig.from_pretrained('bert-base-uncased')    
+        self.bert = AutoModel.from_config(config)
+        self.z_forward = nn.Linear(config.hidden_size, config.hidden_size)
+        self.z_backward = nn.Linear(config.hidden_size, config.hidden_size)
+        self.cls = nn.Linear(config.hidden_size*2, 2)
 
         # Initialize weights and apply final processing
         #self.post_init()
@@ -117,6 +121,7 @@ class ForwardModel(nn.Module):
     #@replace_return_docstrings(output_type=NextSentencePredictorOutput, config_class=_CONFIG_FOR_DOC)
     def forward(
         self,
+        train=None,
         input_ids=None,
         attention_mask=None,
         token_type_ids=None,
@@ -130,50 +135,61 @@ class ForwardModel(nn.Module):
         **kwargs,
     ):
 
-        if "next_sentence_label" in kwargs:
-            warnings.warn(
-                "The `next_sentence_label` argument is deprecated and will be removed in a future version, use `labels` instead.",
-                FutureWarning,
-            )
-            labels = kwargs.pop("next_sentence_label")
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-       ## prev_sents, next_sents = inputs[0], inputs[1]
-        
+        prev_sents_ids,curr_sents_ids, next_sents_ids = input_ids[0], input_ids[1], input_ids[2]
+        prev_attention_mask, curr_attention_mask, next_attention_mask = attention_mask[0], attention_mask[1],attention_mask[2]
+        prev_type_ids, curr_type_ids, next_type_ids = token_type_ids[0], token_type_ids[1], token_type_ids[2]
+
+        if train:
+            ## permutate the samples
+            ## else do nothing
+            
+            
+            labels = labels.repeat(2,1)
+
         # TODO: check input argument
-        outputs = self.forward_function(input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,)
-        ###next_outs = self.backward_function(next_sents)
-        ## outputs = torch.cat((prev_outs, next_outs), 1)
-
-        ## pooled_output_prev = prev_outs[1]
-        ## pooled_output_next = next_outs[1]
-        ## pooled_outs = torch.cat((pooled_output_prev, pooled_output_next), 1)
-        pooled_output = outputs[1]
+        prev_out = self.bert(prev_sents_ids,
+                                          attention_mask = prev_attention_mask,
+                                          token_type_ids = prev_type_ids)
+        next_out = self.bert(next_sents_ids,
+                                          attention_mask = next_attention_mask,
+                                          token_type_ids = next_type_ids)
+        curr_out = self.bert(curr_sents_ids,
+                                          attention_mask = curr_attention_mask,
+                                          token_type_ids = curr_type_ids)
         
-        seq_relationship_scores = self.cls(pooled_outs)
+        prev_last_hid, prev_pooler = prev_out['last_hidden_state'],prev_out['pooler_output']
+        next_last_hid, next_pooler = next_out['last_hidden_state'], next_out['pooler_output']
+        curr_last_hid, curr_pooler = curr_out['last_hidden_state'], curr_out['pooler_output']
+        
+        ## get forward function and backward function
+        prev_forward =self.z_forward(prev_pooler)
+        curr_backward = self.z_backward(curr_pooler)
+        curr_forward = self.z_forward(curr_pooler)
+        next_backward = self.z_backward(next_pooler)
+        
+        forward_pooled_outs = torch.cat((prev_forward, curr_forward), 0)
+        backward_pooled_outs = torch.cat((curr_backward, next_backward), 0)
+        pooled_outs = torch.cat((forward_pooled_outs, backward_pooled_outs),1)
+        
+        
 
+        seq_relationship_scores = self.cls(pooled_outs)
+        #pdb.set_trace()
         forward_backward_loss = None
         if labels is not None:
             loss_fct = CrossEntropyLoss()
             forward_backward_loss = loss_fct(seq_relationship_scores.view(-1, 2), labels.view(-1))
 
-        if not return_dict:
-            output = (seq_relationship_scores,) + outputs[2:]
-            return ((forward_backward_loss,) + output) if forward_backward_loss is not None else output
 
-        return pooled_output, outputs.hidden_states, outputs.attentions
-##        return NextSentencePredictorOutput(
-##           loss=forward_backward_loss,
-##            logits=seq_relationship_scores,
-##            hidden_states=outputs.hidden_states,
-##            attentions=outputs.attentions,
-##        )
+        return NextSentencePredictorOutput(
+            loss=forward_backward_loss,
+            logits=seq_relationship_scores,
+            #hidden_states=prev_outs.hidden_states,
+            #attentions=prev_outs.attentions,
+        )
+    
+        
+        
