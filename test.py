@@ -35,10 +35,19 @@ def get_dataset_acc(dataset, model, batch_size, device, sample_negatives):
     total_correct = 0
     total_loss = 0
     k=1
-    i=0
+    data_rep = dict()
+    data_rep['true_labels'] = torch.LongTensor().to(device)
+    data_rep['pred_labels'] = torch.LongTensor().to(device)
+    data_rep['prev_forward'] = torch.Tensor().to(device)
+    data_rep['curr_forward'] = torch.Tensor().to(device)
+    data_rep['curr_backward'] = torch.Tensor().to(device)
+    data_rep['next_backward'] = torch.Tensor().to(device)
+    data_rep['input_ids_prev'] = torch.Tensor().to(device)
+    data_rep['input_ids'] = torch.Tensor().to(device)
+    data_rep['input_ids_next'] = torch.Tensor().to(device)
+    
     for batch in loop:
-        #print('batch number ', i)
-        #i+=1
+
         ############### negative samples ##########
         if len(batch['input_ids_prev']) != batch_size:
             break
@@ -116,11 +125,25 @@ def get_dataset_acc(dataset, model, batch_size, device, sample_negatives):
             labels = batch['true_labels_for_cal_acc'].to(device)
         n_correct = get_num_correct(pred_labs, labels)
         total_correct += n_correct
+
+        ####### add to return data ######
+        data_rep['true_labels'] = torch.cat((data_rep['true_labels'], labels), 0)
+        data_rep['pred_labels'] = torch.cat((data_rep['pred_labels'], pred_labs), 0)
+        # [prev_forward, curr_forward, curr_backward, next_backward]
+        data_rep['prev_forward'] = torch.cat((data_rep['prev_forward'], outputs.hidden_states[0]),0)
+        data_rep['curr_forward'] = torch.cat((data_rep['curr_forward'], outputs.hidden_states[1]),0)
+        data_rep['curr_backward'] = torch.cat((data_rep['curr_backward'], outputs.hidden_states[2]),0)
+        data_rep['next_backward'] = torch.cat((data_rep['next_backward'], outputs.hidden_states[3]),0)
+        #data_rep['input_ids_prev'] = torch.cat((data_rep['input_ids_prev'], batch['input_ids_prev'].to(device)),0)
+        #data_rep['input_ids'] = torch.cat((data_rep['input_ids'], batch['input_ids'].to(device)),0)
+        #data_rep['input_ids_next'] = torch.cat((data_rep['input_ids_next'], batch['input_ids_next'].to(device)),0)
+
+        #################################
     print('eval loss: ', total_loss/n_processed)
 
     acc = total_correct/ n_processed
     #pdb.set_trace()
-    return acc
+    return acc, data_rep
 
 
 def get_pred_labs (logits):
@@ -181,13 +204,13 @@ loader_test = torch.utils.data.DataLoader(ddtest, batch_size=batch_size, shuffle
 
 
 
-acc_test = get_dataset_acc(ddtest, bertmodel, batch_size, device, True)
-print('bert test acc: ',acc_test)
+#acc_test = get_dataset_acc(ddtest, bertmodel, batch_size, device, True)
+#print('bert test acc: ',acc_test)
 
-acc_eval = get_dataset_acc(ddeval, fbmodel, batch_size, device, True)
-print('eval acc: ',acc_eval)
+#acc_eval, fb_eval_rep = get_dataset_acc(ddeval, fbmodel, batch_size, device, True)
+#print('eval acc: ',acc_eval)
 
-acc_test = get_dataset_acc(ddtest, fbmodel, batch_size, device, True)
+acc_test, fb_test_rep = get_dataset_acc(ddtest, fbmodel, batch_size, device, True)
 print('fbmodel test acc: ',acc_test)
 pdb.set_trace()
 print('done')
