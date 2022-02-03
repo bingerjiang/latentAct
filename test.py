@@ -18,15 +18,94 @@ from transformers import AdamW
 from transformers import BertForNextSentencePrediction, AutoModel
 
 from torch.utils.data import RandomSampler
+from sklearn.manifold import TSNE
+import pandas as pd
+import seaborn as sns
+import numpy as np
+import matplotlib.pyplot as plt
 
 from tools import *
 from models import BertForForwardBackwardPrediction
 from dataset import ddDataset
 from evaluation import evaluation
 
+import argparse
+def get_parser():
+    """Get argument parser."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--dataset", 
+        type=str,
+        #required=False,
+        default='daily_dialog'
+    )
+    parser.add_argument(
+        "--max_len", 
+        type=int,
+        #required=False,
+        default=128,
+        help="max len of sentence"
+    )
+    parser.add_argument(
+        "--model_dir", 
+        type=str,
+        #required=False,
+        default='./old/model_checkpoints/',
+        help="directory of save models"
+    )
+    parser.add_argument(
+        "--load_model_name", 
+        type=str,
+        #required=False,
+        default='lr=1e-5_model.epoch_3',
+        help="model name to be loaded, added to model_dir"
+    )
+    parser.add_argument(
+        "--eval_sample_negatives", 
+        #type=bool,
+        #required=False,
+        action='store_true',
+        help="if add negative samples in calculating accuracy"
+    )
+    parser.add_argument(
+        "--do_tsne", 
+        #type=bool,
+        #required=False,
+        action='store_true'
+    )
+    parser.add_argument(
+        "--train_batch_size", 
+        type=int,
+        #required=False,
+        default=3,
+        help="train batch size"
+    )
+    parser.add_argument(
+        "--eval_batch_size", 
+        type=int,
+        #required=False,
+        default=3,
+        help="eval batch size"
+    )
+    parser.add_argument(
+        "--test_batch_size", 
+        type=int,
+        required=False,
+        default=3,
+        help="test batch size"
+    )
+    parser.add_argument(
+        "--k_neg_pos", "-k", 
+        type=int,
+        #required=False,
+        default=3,
+        help="negatives vs. positives"
+    )
+
+    return parser
 
 #%%
-def get_dataset_acc(dataset, model, batch_size, device, sample_negatives):
+def get_dataset_acc(args, dataset, dialogs_flat, k, model, batch_size, device, sample_negatives):
     loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
     model.to(device)
     model.eval()
@@ -34,17 +113,21 @@ def get_dataset_acc(dataset, model, batch_size, device, sample_negatives):
     n_processed = 0
     total_correct = 0
     total_loss = 0
-    k=1
+    
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    bag_of_sents_tok = tokenizer(dialogs_flat, return_tensors='pt', max_length=args.max_len, truncation=True, padding='max_length')
+
+    
     data_rep = dict()
-    data_rep['true_labels'] = torch.LongTensor().to(device)
-    data_rep['pred_labels'] = torch.LongTensor().to(device)
-    data_rep['prev_forward'] = torch.Tensor().to(device)
-    data_rep['curr_forward'] = torch.Tensor().to(device)
-    data_rep['curr_backward'] = torch.Tensor().to(device)
-    data_rep['next_backward'] = torch.Tensor().to(device)
-    data_rep['input_ids_prev'] = torch.Tensor().to(device)
-    data_rep['input_ids'] = torch.Tensor().to(device)
-    data_rep['input_ids_next'] = torch.Tensor().to(device)
+    data_rep['true_labels'] = torch.LongTensor().cpu()
+    data_rep['pred_labels'] = torch.LongTensor().cpu()
+    data_rep['prev_forward'] = torch.Tensor().cpu()
+    data_rep['curr_forward'] = torch.Tensor().cpu()
+    data_rep['curr_backward'] = torch.Tensor().cpu()
+    data_rep['next_backward'] = torch.Tensor().cpu()
+    data_rep['input_ids_prev'] = torch.Tensor().cpu()
+    data_rep['input_ids'] = torch.Tensor().cpu()
+    data_rep['input_ids_next'] = torch.Tensor().cpu()
     
     for batch in loop:
 
@@ -52,7 +135,7 @@ def get_dataset_acc(dataset, model, batch_size, device, sample_negatives):
         if len(batch['input_ids_prev']) != batch_size:
             break
         if sample_negatives:
-            neg_labs = [1]*k
+            neg_labs = [1]
         
             i = 0
             negatives = []
@@ -101,7 +184,7 @@ def get_dataset_acc(dataset, model, batch_size, device, sample_negatives):
                           batch['token_type_ids'].to(device),
                           batch['token_type_ids_next'].to(device)]
         labels = batch['labels'].to(device)      
-            #pdb.set_trace()
+        #pdb.set_trace()
         outputs = model(input_ids, attention_mask=attention_mask,
                         token_type_ids=token_type_ids,
                         labels=labels)
@@ -123,20 +206,22 @@ def get_dataset_acc(dataset, model, batch_size, device, sample_negatives):
         #pdb.set_trace()
         if sample_negatives:
             labels = batch['true_labels_for_cal_acc'].to(device)
-        n_correct = get_num_correct(pred_labs, labels)
+            n_correct = get_num_correct(pred_labs, labels)
+        else:
+            n_correct = get_num_correct(pred_labs, labels.repeat(2))
         total_correct += n_correct
 
         ####### add to return data ######
-        data_rep['true_labels'] = torch.cat((data_rep['true_labels'], labels), 0)
-        data_rep['pred_labels'] = torch.cat((data_rep['pred_labels'], pred_labs), 0)
+        data_rep['true_labels'] = torch.cat((data_rep['true_labels'], labels.cpu()), 0).cpu().detach()
+        data_rep['pred_labels'] = torch.cat((data_rep['pred_labels'], pred_labs.cpu()), 0).cpu().detach()
         # [prev_forward, curr_forward, curr_backward, next_backward]
-        data_rep['prev_forward'] = torch.cat((data_rep['prev_forward'], outputs.hidden_states[0]),0)
-        data_rep['curr_forward'] = torch.cat((data_rep['curr_forward'], outputs.hidden_states[1]),0)
-        data_rep['curr_backward'] = torch.cat((data_rep['curr_backward'], outputs.hidden_states[2]),0)
-        data_rep['next_backward'] = torch.cat((data_rep['next_backward'], outputs.hidden_states[3]),0)
-        #data_rep['input_ids_prev'] = torch.cat((data_rep['input_ids_prev'], batch['input_ids_prev'].to(device)),0)
-        #data_rep['input_ids'] = torch.cat((data_rep['input_ids'], batch['input_ids'].to(device)),0)
-        #data_rep['input_ids_next'] = torch.cat((data_rep['input_ids_next'], batch['input_ids_next'].to(device)),0)
+        data_rep['prev_forward'] = torch.cat((data_rep['prev_forward'], outputs.hidden_states[0].cpu()),0).cpu().detach()
+        data_rep['curr_forward'] = torch.cat((data_rep['curr_forward'], outputs.hidden_states[1].cpu()),0).cpu().detach()
+        data_rep['curr_backward'] = torch.cat((data_rep['curr_backward'], outputs.hidden_states[2].cpu()),0).cpu().detach()
+        data_rep['next_backward'] = torch.cat((data_rep['next_backward'], outputs.hidden_states[3].cpu()),0).cpu().detach()
+        data_rep['input_ids_prev'] = torch.cat((data_rep['input_ids_prev'], batch['input_ids_prev'].cpu()),0).cpu().detach()
+        data_rep['input_ids'] = torch.cat((data_rep['input_ids'], batch['input_ids'].cpu()),0).cpu().detach()
+        data_rep['input_ids_next'] = torch.cat((data_rep['input_ids_next'], batch['input_ids_next'].cpu()),0).cpu().detach()
 
         #################################
     print('eval loss: ', total_loss/n_processed)
@@ -155,68 +240,119 @@ def get_num_correct (pred_labs, true_labs):
     return (pred_labs == true_labs).float().sum()
 
 
+def main():
+    #%%
+    
+    parser = get_parser()
+    args = parser.parse_args()
+    if args.do_tsne:
+        print('do tsne')
+    if args.eval_batch_size:
+        print('eval negative sample')
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    
+    
+    dataset = load_dataset(args.dataset)
 
-#%%
-device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-
-dataset = load_dataset("daily_dialog")
-
-dialogs = dataset['train']['dialog']
-dialogs_eval = dataset['validation']['dialog']
-dialogs_test = dataset['test']['dialog']
-
-
-dialogs_flat = [utt for dialog in dialogs for utt in dialog]
-
-bag_of_sents_tok = tokenizer(dialogs_flat, return_tensors='pt', max_length=128, truncation=True, padding='max_length')
-
-curr_sents, prev_sents, next_sents = constructPositives(dialogs)
-curr_sents_eval, prev_sents_eval, next_sents_eval = constructPositives(dialogs_eval)
-curr_sents_test, prev_sents_test, next_sents_test = constructPositives(dialogs_test)
+    dialogs = dataset['train']['dialog']
+    dialogs_eval = dataset['validation']['dialog']
+    dialogs_test = dataset['test']['dialog']
 
 
-ddtrain = constructInputs(prev_sents, curr_sents, next_sents, 'dailydialog')
-ddeval = constructInputs(curr_sents_eval, prev_sents_eval, next_sents_eval, 'dailydialog')
-ddtest = constructInputs(curr_sents_test, prev_sents_test, next_sents_test, 'dailydialog')
+    dialogs_flat = [utt for dialog in dialogs for utt in dialog]
 
 
-model_path = './old/model_checkpoints/'
+    curr_sents, prev_sents, next_sents = constructPositives(dialogs)
+    curr_sents_eval, prev_sents_eval, next_sents_eval = constructPositives(dialogs_eval)
+    curr_sents_test, prev_sents_test, next_sents_test = constructPositives(dialogs_test)
 
 
+    ddtrain = constructInputs(prev_sents, curr_sents, next_sents, 'dailydialog')
+    ddeval = constructInputs(curr_sents_eval, prev_sents_eval, next_sents_eval, 'dailydialog')
+    ddtest = constructInputs(curr_sents_test, prev_sents_test, next_sents_test, 'dailydialog')
 
-model = AutoModel.from_pretrained('bert-base-uncased')
-# originally used BertForNextSentencePrediction
-bertmodel = BertForForwardBackwardPrediction(model.config)
+    model_path = args.model_dir
 
-fbmodel = torch.load( model_path+ 'lr=1e-5_model.epoch_3')
+    model = AutoModel.from_pretrained('bert-base-uncased')
+    # originally used BertForNextSentencePrediction
+    bertmodel = BertForForwardBackwardPrediction(model.config)
 
-# lr=1e-5_model.epoch_3
-# 0.9793
-# lr=5e-6_model.epoch_3
-# 0.9679
+    fbmodel = torch.load( model_path+ args.load_model_name)
+    #torch.save(fbmodel.state_dict(), model_path+ 'statedict_lr=1e-5_model.epoch_3')
+    # lr=1e-5_model.epoch_3
+    # 0.9793
+    # lr=5e-6_model.epoch_3
+    # 0.9679
+    #pdb.set_trace()
+    
 
-batch_size = 3
+    loader = torch.utils.data.DataLoader(ddtrain, batch_size=args.train_batch_size, shuffle=True)
+    loader_eval = torch.utils.data.DataLoader(ddeval, batch_size=args.eval_batch_size, shuffle=True)
+    loader_test = torch.utils.data.DataLoader(ddtest, batch_size=args.test_batch_size, shuffle=True)
 
-loader = torch.utils.data.DataLoader(ddtrain, batch_size=batch_size, shuffle=True)
-loader_eval = torch.utils.data.DataLoader(ddeval, batch_size=batch_size, shuffle=True)
-loader_test = torch.utils.data.DataLoader(ddtest, batch_size=batch_size, shuffle=True)
+    #acc_test = get_dataset_acc(ddtest, bertmodel, args.test_batch_size, device, True)
+    #print('bert test acc: ',acc_test)
+
+    acc_eval, outputs = get_dataset_acc(args, ddeval, dialogs_flat, args.k_neg_pos, fbmodel, args.eval_batch_size, device, args.eval_sample_negatives)
+    print('eval acc: ',acc_eval)
+
+    #acc_test,outputs = get_dataset_acc(ddtest, fbmodel, batch_size, device, False)
+    #print('fbmodel test acc: ',acc_test)
+    
+    if args.do_tsne:
+        time_start = time.time()
+        #pdb.set_trace()
+        df=pd.DataFrame(torch.cat((outputs['curr_backward'], outputs['curr_forward']), 0).cpu().detach().numpy())
+        func = [0]*len(outputs['curr_backward']) + [1]*len(outputs['curr_backward'])
+        df['function'] = pd.Series(np.array(func), index=df.index)
+        n_component = 2
+
+        ppl = [30, 40, 50]
+                # ppl = [50]
+                
+        num_iter = [ 300, 1000, 5000]
+        for p in ppl:
+            for it in num_iter:
+                tsne = TSNE(n_components=n_component, verbose=1, perplexity=p, n_iter=it)
+                tsne_results = tsne.fit_transform(df)
+                print('t-SNE done! Time elapsed: {} seconds'.format(time.time() - time_start))
+                if n_component ==2:
+                    df['tsne-2d-one'] = tsne_results[:,0]
+                    df['tsne-2d-two'] = tsne_results[:,1]
+                
+                    plt.figure(figsize=(16,10))
+                    sns.scatterplot(
+                        x="tsne-2d-one", y="tsne-2d-two",
+                        hue="function",
+                            # palette=sns.color_palette("hls", 10),
+                        data=df,
+                        legend="full",
+                        alpha=0.3
+                    )
+                elif n_component ==3:
+                    df['tsne-3d-one'] = tsne_results[:,0]
+                    df['tsne-3d-two'] = tsne_results[:,1]
+                    df['tsne-3d-three'] = tsne_results[:,2]
+                    plt.figure(figsize=(16,10))
+                    sns.scatterplot(
+                        x="tsne-3d-one", y="tsne-3d-two", z="tsne-3d-three",
+                        hue="function",
+                            # palette=sns.color_palette("hls", 10),
+                        data=df,
+                        legend="full",
+                        alpha=0.3
+                    )
+                plt.savefig("./tsne_plots/n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
+                print ('Plotted perplexity %d step %d'%(p, it))
+                print('Time plotting this plot: {} seconds'.format(time.time() - time_start))
 
 
-
-#acc_test = get_dataset_acc(ddtest, bertmodel, batch_size, device, True)
-#print('bert test acc: ',acc_test)
-
-#acc_eval, fb_eval_rep = get_dataset_acc(ddeval, fbmodel, batch_size, device, True)
-#print('eval acc: ',acc_eval)
-
-acc_test, fb_test_rep = get_dataset_acc(ddtest, fbmodel, batch_size, device, True)
-print('fbmodel test acc: ',acc_test)
-pdb.set_trace()
-print('done')
+    pdb.set_trace()
+    print('done')
 
 
 #acc_train = get_dataset_acc(ddtrain, fbmodel, batch_size, device)
 #print('train acc: ',acc_train)
 
-
+if __name__ == "__main__":
+    main()
