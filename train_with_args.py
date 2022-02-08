@@ -28,13 +28,13 @@ from transformers import BertForNextSentencePrediction, AutoModel
 from torch.utils.data import RandomSampler
 
 from tools import *
-from models import BertForForwardBackwardPrediction
+from models import *
 from dataset import ddDataset
 from evaluation import evaluation
 from test import *
 #%%
 #logger = setup_logger('{}'.format('model.pt'))
-
+import datetime
 import argparse
 def get_parser():
     """Get argument parser."""
@@ -44,6 +44,12 @@ def get_parser():
         type=str,
         #required=False,
         default='daily_dialog'
+    )
+    parser.add_argument(
+        "--model_type", 
+        type=str,
+        #required=False,
+        default='binary'
     )
     parser.add_argument(
         "--max_len", 
@@ -57,10 +63,10 @@ def get_parser():
         type=str,
         #required=False,
         default='./old/model_checkpoints/',
-        help="directory of save models"
+        help="directory of saved models"
     )
     parser.add_argument(
-        "--continue", 
+        "--continue_train", 
         #type=bool,
         #required=False,
         action='store_true',
@@ -129,6 +135,13 @@ def get_parser():
         help="negatives vs. positives"
     )
     parser.add_argument(
+        "--test_k",  
+        type=int,
+        #required=False,
+        default=1,
+        help="negatives vs. positives for eval/test"
+    )
+    parser.add_argument(
         "--lr",  
         type=float,
         #required=False,
@@ -155,6 +168,10 @@ def get_parser():
         default=5,
         help="lr decay"
     )
+    parser.add_argument(
+        "--calculate_test_acc", 
+        action='store_true'
+    )
     
     return parser
 
@@ -169,23 +186,25 @@ def main():
 
     dialogs = dd_train['dialog']
     dialogs_eval = dataset['validation']['dialog']
-    dialog_test = dataset['test']['dialog']
+    dialogs_test = dataset['test']['dialog']
     if args.trial:
         dialogs = dialogs[:20]
         dialogs_eval = dialogs_eval[:20]
     print('length of training data: ', len(dialogs))
-    
+    if args.eval_sample_negatives:
+        print('eval sample negativs')
     dialogs_flat = [utt for dialog in dialogs for utt in dialog]
 
     bag_of_sents_tok = tokenizer(dialogs_flat, return_tensors='pt', max_length=args.max_len, truncation=True, padding='max_length')
 
     curr_sents, prev_sents, next_sents = constructPositives(dialogs)
     curr_sents_eval, prev_sents_eval, next_sents_eval = constructPositives(dialogs_eval)
+    curr_sents_test, prev_sents_test, next_sents_test = constructPositives(dialogs_test)
 
 
     ddtrain = constructInputs(prev_sents, curr_sents, next_sents, 'dailydialog')
     ddeval = constructInputs(curr_sents_eval, prev_sents_eval, next_sents_eval, 'dailydialog')
-
+    ddtest = constructInputs(curr_sents_test, prev_sents_test, next_sents_test, 'dailydialog')
     #test_input_prev = tokenizer(all_prev_sents[:50], return_tensors='pt', max_length=256, truncation=True, padding='max_length')
     #test_input_next = tokenizer(all_next_sents[:50], return_tensors='pt', max_length=256, truncation=True, padding='max_length')
     #test_labs = torch.LongTensor(all_labs[:50]).T
@@ -194,13 +213,23 @@ def main():
     #%%
     model = AutoModel.from_pretrained('bert-base-uncased')
     # originally used BertForNextSentencePrediction
-    fbmodel = BertForForwardBackwardPrediction(model.config)
+    if args.model_type == 'binary':
+        fbmodel = BertForForwardBackwardPrediction(model.config)
+        if args.continue_train:
+            fbmodel = torch.load(args.model_dir+ args.load_model_name)
+    elif args.model_type == 'cos':
+        fbmodel = BertForForwardBackwardPrediction_cos(model.config)
+    if args.trial:
+        fbmodel = BertForForwardBackwardPrediction_cos(model.config)
+    
     batch_size_train= args.train_batch_size
     batch_size_eval = args.eval_batch_size
-
+    batch_size_test = args.test_batch_size
+    
     loader = torch.utils.data.DataLoader(ddtrain, batch_size=args.train_batch_size, shuffle=True)
     loader_eval = torch.utils.data.DataLoader(ddeval, batch_size=args.eval_batch_size, shuffle=True)
-
+    loader_test = torch.utils.data.DataLoader(ddtest, batch_size=args.test_batch_size, shuffle=True)
+    
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     fbmodel.to(device)
     fbmodel.train()
@@ -215,6 +244,23 @@ def main():
     epochs = args.n_epochs 
     k =args.k_neg_pos
     print('k: ', k)
+    
+    ###################
+    ## print a set of hyperparams
+    print('model and training info:')
+    print('k_neg_pos= ', args.k_neg_pos)
+    print('n_epochs= ', args.n_epochs)
+    print('eval_batch_size= ', args.eval_batch_size) 
+    print('train_batch_size= ', args.train_batch_size)
+    print('model_type= ', args.model_type)
+    print('lr= ', args.lr)
+    print('save_model_dir= ', args.save_model_dir)
+    
+    
+    #print('accuracy before training: ')
+    #acc_test, outputs = get_dataset_acc(args, ddtest, dialogs_flat, args.test_k, fbmodel, args.test_batch_size, device, args.eval_sample_negatives)
+    #print('test acc: ',acc_test)
+    print('---- start training -----')
     for epoch in range(epochs):        
         loop = tqdm(loader, leave=True)
         total_loss = 0
@@ -291,11 +337,18 @@ def main():
         
         # eval
         eval_loss = evaluation(fbmodel, loader_eval, device, epoch)
+        if args.calculate_test_acc:
+            acc_eval, outputs = get_dataset_acc(args, ddeval, dialogs_flat, args.k_neg_pos, fbmodel, args.eval_batch_size, device, args.eval_sample_negatives)
+            print('eval acc: ',acc_eval)
         
         #torch.save(fbmodel, model_path + '.epoch_{}'.format(epoch))
         # Save the model if the validation loss is the best we've seen so far.
         if  eval_loss < best_eval_loss:
-            torch.save(fbmodel, model_path + 'lr=1e-6_model.epoch_{}'.format(epoch))
+            if not args.trial:
+                now = datetime.datetime.now()
+                curr_date = now.strftime("%Y-%m-%d")
+                torch.save(fbmodel, args.save_model_dir +curr_date + str(args.model_type)+\
+                           '_lr='+str(args.lr)+'_model''.epoch_{}'.format(epoch)+'.pt')
             best_eval_loss = eval_loss
             n_plateau = 0
             
@@ -306,8 +359,9 @@ def main():
             n_plateau = 0
         else:
             n_plateau +=1
-    
-    
+    if args.calculate_test_acc:
+        acc_test, outputs = get_dataset_acc(args, ddtest, dialogs_flat, args.test_k, fbmodel, args.test_batch_size, device, args.eval_sample_negatives)
+        print('test acc: ',acc_test)
 # test
     
 #%%
