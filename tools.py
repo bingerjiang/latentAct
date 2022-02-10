@@ -11,7 +11,7 @@ from transformers import AutoTokenizer
 from dataset import ddDataset
 
 import logging
-
+import pdb
 def sample_next(sents, k):
     '''
     Parameters
@@ -121,6 +121,51 @@ def constructPositives (dataset):
    
     return current_sents, prev_sents, next_sents
 
+def constructPositives_dataset (dataset):
+    '''
+    dataset: list of lists
+    current_sents: not the first of last sent in dialog
+    '''
+    # exclude dialogs that only have 2 utterances
+    long_dialogs = [el for el in dataset if len(el['dialog'])>2]
+    
+    #long_dialogs = long_dialogs_dataset['dialog']
+    current_sents = []
+    prev_sents = []
+    next_sents = []
+    #pdb.set_trace()
+    
+    curr_acts = []
+    prev_acts = []
+    next_acts = []
+    
+    curr_emotions = []
+    prev_emotions = []
+    next_emotions = []
+    for dia in long_dialogs:
+        #dialog is dict
+        i = 1
+        dialog = dia['dialog']
+        act = dia['act']
+        emotion = dia['emotion']
+        while i < len(dialog)-1:
+            current_sents.append(dialog[i])
+            prev_sents.append(dialog[i-1])
+            next_sents.append(dialog[i+1])
+            
+            curr_acts.append(act[i])
+            prev_acts.append(act[i-1])
+            next_acts.append(act[i+1])
+            
+            curr_emotions.append(emotion[i])
+            prev_emotions.append(emotion[i-1])
+            next_emotions.append(emotion[i+1])           
+            i +=1
+    print('len of current_sents: ',len(current_sents))
+    sents = [current_sents, prev_sents, next_sents]
+    acts = [curr_acts, prev_acts, next_acts]
+    emotions = [curr_emotions, prev_emotions, next_emotions]
+    return sents, acts, emotions
 #%%
 def constructInputs (prev_sents, curr_sents, next_sents, dataset):
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
@@ -149,6 +194,44 @@ def constructInputs (prev_sents, curr_sents, next_sents, dataset):
     
     return initiated_inputs
 
+def constructInputs_with_act_emotion (sents, acts, emotions, dataset):
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    #pdb.set_trace()
+    curr_sents, prev_sents, next_sents = sents
+    curr_acts, prev_acts, next_acts = acts
+    curr_emotions, prev_emotions, next_emotions = emotions
+    
+    current_sents_tok = tokenizer(curr_sents, return_tensors='pt', max_length=128, truncation=True, padding='max_length')
+    prev_sents_tok = tokenizer(prev_sents, return_tensors='pt', max_length=128, truncation=True, padding='max_length')
+    next_sents_tok = tokenizer(next_sents, return_tensors='pt', max_length=128, truncation=True, padding='max_length')
+    labels = torch.LongTensor([0]*len(curr_sents)).T
+    
+    inputs = current_sents_tok
+
+    inputs['input_ids_prev'] = prev_sents_tok['input_ids']
+    inputs['input_ids_next'] = next_sents_tok['input_ids']
+
+    inputs['token_type_ids_prev'] = prev_sents_tok['token_type_ids']
+    inputs['token_type_ids_next'] = next_sents_tok['token_type_ids']
+
+
+    inputs['attention_mask_prev'] = prev_sents_tok['attention_mask']
+    inputs['attention_mask_next'] = next_sents_tok['attention_mask']
+
+    inputs['labels'] = labels
+    
+    inputs['act'] = curr_acts
+    inputs['act_prev'] = prev_acts
+    inputs['act_next'] = next_acts
+    
+    inputs['emotion'] = curr_emotions
+    inputs['emotion_prev'] = prev_emotions
+    inputs['emotion_next'] = next_emotions
+        
+    if dataset =='dailydialog':
+        initiated_inputs = ddDataset(inputs)
+    
+    return initiated_inputs
 
 
 
