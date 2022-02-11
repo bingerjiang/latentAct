@@ -372,6 +372,7 @@ def main():
         
         # eval
         eval_loss = evaluation(fbmodel, loader_eval, device, epoch)
+        print('args.calculate_test_acc: ', args.calculate_test_acc)
         if args.calculate_test_acc:
             acc_eval, outputs = get_dataset_acc(args, ddeval, dialogs_flat, args.k_neg_pos, fbmodel, args.eval_batch_size, device, args.eval_sample_negatives)
             print('eval acc: ',acc_eval)
@@ -384,7 +385,7 @@ def main():
                 curr_date = now.strftime("%Y-%m-%d")
                 #torch.save(model.state_dict(), PATH)
                 torch.save(fbmodel.state_dict(), args.save_model_dir +curr_date + str(args.model_type)+\
-                           '_lr='+str(args.lr)+'_model''.epoch_{}'.format(epoch)+'.pt')
+                           'FB='+str(args.FB_function_size) +'_lr='+str(args.lr)+'_model''.epoch_{}'.format(epoch)+'.pt')
             best_eval_loss = eval_loss
             n_plateau = 0
             
