@@ -172,8 +172,26 @@ def get_parser():
         "--calculate_test_acc", 
         action='store_true'
     )
-    
+    parser.add_argument(
+        "--FB_function_size", 
+        type=int,
+        #required=False,
+        default=64,
+        help="the size of the forward backward function"
+    )
+    parser.add_argument(
+        "--flex", 
+        action='store_true'
+    )
+    #parser.add_argument(
+    #    "--tlayer_size", 
+    #    type=int,
+    #    #required=False,
+    #    default=240,
+    #    help="tlayer size in loss"
+    #)
     return parser
+
 
 #%%
 def main():
@@ -217,10 +235,27 @@ def main():
         fbmodel = BertForForwardBackwardPrediction(model.config)
         if args.continue_train:
             fbmodel = torch.load(args.model_dir+ args.load_model_name)
+        if args.flex:
+            model.config.__dict__['FB_function_size']=args.FB_function_size
+            #model.config.__dict__['tlayer_size']=args.tlayer_size
+            fbmodel = BertForForwardBackward_binary_flex(model.config)
+                
     elif args.model_type == 'cos':
         fbmodel = BertForForwardBackwardPrediction_cos(model.config)
-    if args.trial:
-        fbmodel = BertForForwardBackwardPrediction_cos(model.config)
+        if args.flex:
+            model.config.__dict__['FB_function_size']=args.FB_function_size
+            #model.config.__dict__['tlayer_size']=args.tlayer_size
+            fbmodel = BertForForwardBackward_cos_flex(model.config)
+            print(model.config)
+        #if args.trial:
+        #    fbmodel = BertForForwardBackwardPrediction_cos(model.config)
+    elif args.model_type == 'cos_tlayer':
+        fbmodel = BertForForwardBackwardPrediction_cos_tlayer(model.config)
+        if args.flex:
+            model.config.__dict__['FB_function_size']=args.FB_function_size
+            #model.config.__dict__['tlayer_size']=args.tlayer_size
+            fbmodel = BertForForwardBackward_cos_tlayer_flex(model.config)
+    
     
     batch_size_train= args.train_batch_size
     batch_size_eval = args.eval_batch_size
@@ -347,7 +382,8 @@ def main():
             if not args.trial:
                 now = datetime.datetime.now()
                 curr_date = now.strftime("%Y-%m-%d")
-                torch.save(fbmodel, args.save_model_dir +curr_date + str(args.model_type)+\
+                #torch.save(model.state_dict(), PATH)
+                torch.save(fbmodel.state_dict(), args.save_model_dir +curr_date + str(args.model_type)+\
                            '_lr='+str(args.lr)+'_model''.epoch_{}'.format(epoch)+'.pt')
             best_eval_loss = eval_loss
             n_plateau = 0
