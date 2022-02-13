@@ -300,7 +300,7 @@ def main():
         loop = tqdm(loader, leave=True)
         total_loss = 0
         n_processed = 0
-        for batch in loop:        
+        for batch in loop:
             optim.zero_grad()            
             #sample negatives
             #neg_labs = [1]*k*2
@@ -371,10 +371,10 @@ def main():
         print('training loss: ', total_loss/n_processed)
         
         # eval
-        eval_loss = evaluation(fbmodel, loader_eval, device, epoch)
+        eval_loss = evaluation(fbmodel, loader_eval, device, epoch,args.test_k, args.eval_sample_negatives)
         print('args.calculate_test_acc: ', args.calculate_test_acc)
         if args.calculate_test_acc:
-            acc_eval, outputs = get_dataset_acc(args, ddeval, dialogs_flat, args.k_neg_pos, fbmodel, args.eval_batch_size, device, args.eval_sample_negatives)
+            acc_eval, outputs = get_dataset_acc(args, ddeval, dialogs_flat, args.test_k, fbmodel, args.eval_batch_size, device, args.eval_sample_negatives)
             print('eval acc: ',acc_eval)
         
         #torch.save(fbmodel, model_path + '.epoch_{}'.format(epoch))

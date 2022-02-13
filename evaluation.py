@@ -23,7 +23,7 @@ from models import BertForForwardBackwardPrediction
 from dataset import ddDataset
 
 @torch.no_grad()
-def evaluation(model, loader_eval, device, epoch ):
+def evaluation(model, loader_eval, device, epoch,  k, sample_negatives ):
     
     model.eval()
     loop = tqdm(loader_eval, leave=True)
@@ -31,7 +31,44 @@ def evaluation(model, loader_eval, device, epoch ):
     n_processed = 0
     epoch_start_time = time.time()
     for batch in loop:
-       
+
+        if sample_negatives:
+            neg_labs = [1]
+        
+            i = 0
+            negatives = []
+            
+            sample_neg_prev_idx = RandomSampler(dialogs_flat, replacement= True, 
+                                           num_samples=k*batch_size)
+            sample_neg_next_idx = RandomSampler(dialogs_flat, replacement= True, 
+                                           num_samples=k*batch_size)
+            
+            batch['input_ids_prev']=\
+                    torch.cat((batch['input_ids_prev'],
+                                bag_of_sents_tok['input_ids'][list(sample_neg_prev_idx)]),0)
+            batch['input_ids_next']=\
+                    torch.cat((batch['input_ids_next'],
+                                bag_of_sents_tok['input_ids'][list(sample_neg_next_idx)]),0)
+            batch['attention_mask_prev']=\
+                    torch.cat((batch['attention_mask_prev'],
+                                bag_of_sents_tok['attention_mask'][list(sample_neg_prev_idx)]),0)
+            batch['attention_mask_next']=\
+                    torch.cat((batch['attention_mask_next'],
+                                bag_of_sents_tok['attention_mask'][list(sample_neg_next_idx)]),0)
+            batch['token_type_ids_prev']=\
+                    torch.cat((batch['token_type_ids_prev'],
+                                bag_of_sents_tok['token_type_ids'][list(sample_neg_prev_idx)]),0)
+            batch['token_type_ids_next']=\
+                    torch.cat((batch['token_type_ids_next'],
+                                bag_of_sents_tok['token_type_ids'][list(sample_neg_next_idx)]),0)
+
+            #pdb.set_trace()    
+            batch['input_ids'] = batch['input_ids'].repeat((k+1),1)
+            batch['attention_mask'] = batch['attention_mask'].repeat((k+1),1)
+            batch['token_type_ids'] = batch['token_type_ids'].repeat((k+1),1)
+            batch['true_labels_for_cal_acc'] = torch.cat((batch['labels'],torch.LongTensor(neg_labs).T.repeat(k*batch_size)), 0).repeat(2)
+
+            batch['labels']=torch.cat((batch['labels'],torch.LongTensor(neg_labs).T.repeat(k*batch_size)), 0)
         
        
         # positive samples
