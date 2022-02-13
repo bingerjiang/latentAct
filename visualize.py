@@ -350,7 +350,10 @@ def main():
     if args.load_state_dict:
         model = AutoModel.from_pretrained('bert-base-uncased')
         model.config.__dict__['FB_function_size']=args.FB_function_size
-        fbmodel = BertForForwardBackward_cos_flex(model.config)
+        if args.model_type =='cos':
+            fbmodel = BertForForwardBackward_cos_flex(model.config)
+        elif args.model_type =='cos_tlayer':
+            fbmodel = BertForForwardBackward_cos_tlayer_flex(model.config)
         fbmodel.load_state_dict(torch.load(model_path+ args.load_model_name))
     else:
         fbmodel = torch.load( model_path+ args.load_model_name)
