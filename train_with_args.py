@@ -380,12 +380,19 @@ def main():
         #torch.save(fbmodel, model_path + '.epoch_{}'.format(epoch))
         # Save the model if the validation loss is the best we've seen so far.
         if  eval_loss < best_eval_loss:
-            if not args.trial:
-                now = datetime.datetime.now()
-                curr_date = now.strftime("%Y-%m-%d")
+            #if not args.trial:
+            now = datetime.datetime.now()
+            curr_date = now.strftime("%Y-%m-%d")
                 #torch.save(model.state_dict(), PATH)
-                torch.save(fbmodel.state_dict(), args.save_model_dir +curr_date + str(args.model_type)+\
-                           'FB='+str(args.FB_function_size) +'_lr='+str(args.lr)+'_model''.epoch_{}'.format(epoch)+'.pt')
+            torch.save({
+                        'epoch': epoch,
+                        'model_state_dict': fbmodel.state_dict(),
+                        'optimizer_state_dict': optim.state_dict(),
+                        'loss': eval_loss,
+                        },  args.save_model_dir +curr_date + str(args.model_type)+\
+                        'FB='+str(args.FB_function_size) +'_lr='+str(lr)+'_model''.epoch_{}'.format(epoch)+'.pt')
+                #torch.save(fbmodel.state_dict(), args.save_model_dir +curr_date + str(args.model_type)+\
+                #           'FB='+str(args.FB_function_size) +'_lr='+str(args.lr)+'_model''.epoch_{}'.format(epoch)+'.pt')
             best_eval_loss = eval_loss
             n_plateau = 0
             
@@ -393,6 +400,7 @@ def main():
             # Anneal the learning rate if no improvement has been seen in the
             # validation dataset.
             lr /= lr_decay
+            print('lr decayed to: ', lr)
             n_plateau = 0
         else:
             n_plateau +=1
