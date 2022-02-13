@@ -25,7 +25,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from tools import *
-from models import BertForForwardBackwardPrediction
+from models import *
 from dataset import ddDataset
 from evaluation import evaluation
 
@@ -128,10 +128,28 @@ def get_parser():
         #required=False,
         action='store_true'
     )
+    parser.add_argument(
+        "--load_state_dict", 
+        #type=bool,
+        #required=False,
+        action='store_true'
+    )
+    parser.add_argument(
+        "--calculate_accuracy", 
+        #type=bool,
+        #required=False,
+        action='store_true'
+    )
+    parser.add_argument(
+        "--model_type", 
+        type=str,
+        #required=False,
+        default='binary'
+    )
     return parser
 
 #%%
-def get_dataset_acc(args, dataset, dialogs_flat, k, model, batch_size, device, sample_negatives):
+def get_dataset_acc(args, dataset, dialogs_flat, k, model, batch_size, device, sample_negatives, calculate_accuracy):
     loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
     model.to(device)
     model.eval()
@@ -231,21 +249,22 @@ def get_dataset_acc(args, dataset, dialogs_flat, k, model, batch_size, device, s
         # (prev, curr); (curr, next)
         
         # get num_correct from logits
-        
-        pred_labs = get_pred_labs(outputs.logits).to(device)
+        if calculate_accuracy:
+            pred_labs = get_pred_labs(outputs.logits).to(device)
         #import pdb; pdb.set_trace()
         #labels = batch['true_labels_for_cal_acc'].to(device)
         #pdb.set_trace()
-        if sample_negatives:
-            labels = batch['true_labels_for_cal_acc'].to(device)
-            n_correct = get_num_correct(pred_labs, labels)
-        else:
-            n_correct = get_num_correct(pred_labs, labels.repeat(2))
-        total_correct += n_correct
+            if sample_negatives:
+                labels = batch['true_labels_for_cal_acc'].to(device)
+                n_correct = get_num_correct(pred_labs, labels)
+            else:
+                n_correct = get_num_correct(pred_labs, labels.repeat(2))
+            total_correct += n_correct
+            data_rep['pred_labels'] = torch.cat((data_rep['pred_labels'], pred_labs.cpu()), 0).cpu().detach()
 
         ####### add to return data ######
         data_rep['true_labels'] = torch.cat((data_rep['true_labels'], labels.cpu()), 0).cpu().detach()
-        data_rep['pred_labels'] = torch.cat((data_rep['pred_labels'], pred_labs.cpu()), 0).cpu().detach()
+        
         # [prev_forward, curr_forward, curr_backward, next_backward]
         data_rep['prev_forward'] = torch.cat((data_rep['prev_forward'], outputs.hidden_states[0].cpu()),0).cpu().detach()
         data_rep['curr_forward'] = torch.cat((data_rep['curr_forward'], outputs.hidden_states[1].cpu()),0).cpu().detach()
@@ -262,8 +281,10 @@ def get_dataset_acc(args, dataset, dialogs_flat, k, model, batch_size, device, s
         data_rep['emotion_next'] = torch.cat((data_rep['emotion_next'], batch['emotion_next'].cpu()),0).cpu().detach()
         #################################
     print('eval loss: ', total_loss/n_processed)
-
-    acc = total_correct/ n_processed
+    if calculate_accuracy:
+        acc = total_correct/ n_processed
+    else:
+        acc = -100
     #pdb.set_trace()
     return acc, data_rep
 
@@ -326,8 +347,13 @@ def main():
     #model = AutoModel.from_pretrained('bert-base-uncased')
     # originally used BertForNextSentencePrediction
     #bertmodel = BertForForwardBackwardPrediction(model.config)
-
-    fbmodel = torch.load( model_path+ args.load_model_name)
+    if args.load_state_dict:
+        model = AutoModel.from_pretrained('bert-base-uncased')
+        model.config.__dict__['FB_function_size']=args.FB_function_size
+        fbmodel = BertForForwardBackward_cos_flex(model.config)
+        fbmodel.load_state_dict(torch.load(model_path+ args.load_model_name))
+    else:
+        fbmodel = torch.load( model_path+ args.load_model_name)
     print (fbmodel.config)
     #torch.save(fbmodel.state_dict(), model_path+ 'statedict_lr=1e-5_model.epoch_3')
     # lr=1e-5_model.epoch_3
@@ -347,7 +373,7 @@ def main():
     #acc_eval, outputs = get_dataset_acc(args, ddeval, dialogs_flat, args.k_neg_pos, fbmodel, args.eval_batch_size, device, args.eval_sample_negatives)
     #print('eval acc: ',acc_eval)
 
-    acc_test, outputs = get_dataset_acc(args, ddtest, dialogs_flat, args.k_neg_pos, fbmodel, args.eval_batch_size, device, args.eval_sample_negatives)
+    acc_test, outputs = get_dataset_acc(args, ddtest, dialogs_flat, args.k_neg_pos, fbmodel, args.eval_batch_size, device, args.eval_sample_negatives, args.calculate_accuracy)
     print('fbmodel test acc: ',acc_test)
     
     if args.do_tsne:
