@@ -558,7 +558,7 @@ class BertForForwardBackward_cos_tlayer_flex(BertPreTrainedModel):
         self.z_forward = nn.Linear(config.hidden_size, config.FB_function_size)
         self.z_backward = nn.Linear(config.hidden_size, config.FB_function_size)
         #self.cls = nn.Linear(config.hidden_size*2, 2)
-        self.inter_rep = nn.TransformerEncoderLayer(d_model=config.FB_function_size, nhead=config.num_attention_heads)
+        self.inter_rep = nn.TransformerEncoderLayer(d_model=config.FB_function_size, nhead=4)
 
         # Initialize weights and apply final processing
         #self.post_init()
