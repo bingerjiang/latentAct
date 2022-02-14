@@ -184,7 +184,7 @@ class BertForForwardBackward_binary_flex(BertPreTrainedModel):
 
         # self.bert = BertModel(config)
         
-        config = BertConfig.from_pretrained('bert-base-uncased')    
+        #config = BertConfig.from_pretrained('bert-base-uncased')    
         self.bert = AutoModel.from_config(config)
         self.z_forward = nn.Linear(config.hidden_size, config.FB_function_size)
         self.z_backward = nn.Linear(config.hidden_size, config.FB_function_size)
