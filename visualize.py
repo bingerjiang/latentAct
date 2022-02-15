@@ -135,6 +135,12 @@ def get_parser():
         action='store_true'
     )
     parser.add_argument(
+        "--load_state_dict_new", 
+        #type=bool,
+        #required=False,
+        action='store_true'
+    )
+    parser.add_argument(
         "--calculate_accuracy", 
         #type=bool,
         #required=False,
@@ -359,14 +365,27 @@ def main():
     #model = AutoModel.from_pretrained('bert-base-uncased')
     # originally used BertForNextSentencePrediction
     #bertmodel = BertForForwardBackwardPrediction(model.config)
+    model = AutoModel.from_pretrained('bert-base-uncased')
+    model.config.__dict__['FB_function_size']=args.FB_function_size
     if args.load_state_dict:
-        model = AutoModel.from_pretrained('bert-base-uncased')
-        model.config.__dict__['FB_function_size']=args.FB_function_size
         if args.model_type =='cos':
             fbmodel = BertForForwardBackward_cos_flex(model.config)
         elif args.model_type =='cos_tlayer':
             fbmodel = BertForForwardBackward_cos_tlayer_flex(model.config)
         fbmodel.load_state_dict(torch.load(model_path+ args.load_model_name))
+    elif args.load_state_dict_new:
+        if args.model_type =='cos':
+            fbmodel = BertForForwardBackward_cos_flex(model.config)
+        elif args.model_type =='cos_tlayer':
+            fbmodel = BertForForwardBackward_cos_tlayer_flex(model.config)
+        elif args.model_type == 'binary':
+            fbmodel = BertForForwardBackward_binary_flex(model.config)
+        checkpoint = torch.load(model_path+ args.load_model_name)
+        fbmodel.load_state_dict(checkpoint['model_state_dict'])
+        #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        #epoch = checkpoint['epoch']
+        eval_loss = checkpoint['loss']
+
     else:
         fbmodel = torch.load( model_path+ args.load_model_name)
     print (fbmodel.config)
