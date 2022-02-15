@@ -146,6 +146,18 @@ def get_parser():
         #required=False,
         default='binary'
     )
+    parser.add_argument(
+        "--make_plot", 
+        #type=bool,
+        #required=False,
+        action='store_true'
+    )
+    parser.add_argument(
+        "--save_csv", 
+        #type=bool,
+        #required=False,
+        action='store_true'
+    )
     return parser
 
 #%%
@@ -378,8 +390,8 @@ def main():
 
     acc_test, outputs = get_dataset_acc(args, ddtest, dialogs_flat, args.k_neg_pos, fbmodel, args.eval_batch_size, device, args.eval_sample_negatives, args.calculate_accuracy)
     print('fbmodel test acc: ',acc_test)
-    
-    if args.do_tsne:
+    #pdb.set_trace()
+    if args.make_plot:
         time_start = time.time()
         #pdb.set_trace()
         df=pd.DataFrame(torch.cat((outputs['curr_backward'], outputs['prev_forward']), 0).cpu().detach().numpy())
@@ -390,16 +402,20 @@ def main():
         df['act_prev'] = pd.Series(outputs['act_prev'].repeat(2).cpu().detach().numpy().astype(str))
         df['emotion'] = pd.Series(outputs['emotion'].repeat(2).cpu().detach().numpy().astype(str))
         df['emotion_prev'] = pd.Series(outputs['emotion_prev'].repeat(2).cpu().detach().numpy().astype(str))
-        df.to_csv(str(args.csv_dir)+curr_date+'FBsize='+str(args.FB_function_size)+'k='+str(args.k_neg_pos)+'.csv',
+        if args.save_csv:
+            df.to_csv(str(args.csv_dir)+curr_date+ str(args.model_type)+'_FBsize='+str(args.FB_function_size)+'.csv',
                   index = True)
-        n_component = 2
+        
         #pdb.set_trace()
+    if args.do_tsne:
+        n_component = 2
         ppl = [ 50, 40, 30]
  
         #ppl = [50]
         num_iter = [ 1000, 300,500]
         #num_iter = [ 1000,500]
         #pdb.set_trace()
+    
         for p in ppl:
             for it in num_iter:
                 #from sklearn.manifold import TSNE
@@ -423,7 +439,7 @@ def main():
                         alpha=0.3
                     )
                     plt.show()
-                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "curr_act" +"FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
+                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "curr_act_" +str(args.model_type)+"_FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
                     plt.clf()
                     plt.cla()
                     plt.close()
@@ -439,7 +455,7 @@ def main():
                         alpha=0.3
                     )
                     plt.show()
-                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "prev_act" +"FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
+                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "prev_act_" +str(args.model_type)+"_FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
                     plt.clf()
                     plt.cla()
                     plt.close()
@@ -455,7 +471,7 @@ def main():
                         alpha=0.3
                     )
                     plt.show()
-                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "curr_emotion" +"FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
+                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "curr_emotion_" +str(args.model_type)+"_FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
                     plt.clf()
                     plt.cla()
                     plt.close()
@@ -471,7 +487,7 @@ def main():
                         alpha=0.3
                     )
                     plt.show()
-                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "prev_emotion" +"FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
+                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "prev_emotion_" +str(args.model_type)+"_FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
                     plt.clf()
                     plt.cla()
                     plt.close()
