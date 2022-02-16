@@ -19,6 +19,7 @@ from transformers import BertForNextSentencePrediction, AutoModel
 
 from torch.utils.data import RandomSampler
 from sklearn.manifold import TSNE
+from sklearn.cluster import KMeans
 import pandas as pd
 import seaborn as sns
 import numpy as np
@@ -160,6 +161,12 @@ def get_parser():
     )
     parser.add_argument(
         "--save_csv", 
+        #type=bool,
+        #required=False,
+        action='store_true'
+    )
+    parser.add_argument(
+        "--plot_kmeans_tsne", 
         #type=bool,
         #required=False,
         action='store_true'
@@ -421,17 +428,58 @@ def main():
         df['act_prev'] = pd.Series(outputs['act_prev'].repeat(2).cpu().detach().numpy().astype(str))
         df['emotion'] = pd.Series(outputs['emotion'].repeat(2).cpu().detach().numpy().astype(str))
         df['emotion_prev'] = pd.Series(outputs['emotion_prev'].repeat(2).cpu().detach().numpy().astype(str))
+        
+        X = df[df.columns[1:args.FB_function_size+1]]
+
+        kmeans = KMeans(n_clusters=14, init ='k-means++', max_iter=300,  n_init=10,random_state=0 )
+        kmeans.fit(X)
+        y_kmeans = kmeans.fit_predict(X)
+        print(set(y_kmeans))
+        df['kmeans_lab'] = y_kmeans.astype(str)
         if args.save_csv:
             df.to_csv(str(args.csv_dir)+curr_date+ str(args.model_type)+'_FBsize='+str(args.FB_function_size)+'.csv',
                   index = True)
         
         #pdb.set_trace()
-    if args.do_tsne:
-        n_component = 2
-        ppl = [ 50, 40, 30]
+    n_component = 2
+    ppl = [ 50, 40, 30]
  
         #ppl = [50]
-        num_iter = [ 1000, 300,500]
+    num_iter = [ 1000, 300,500]
+    
+    if args.plot_kmeans_tsne:
+        for p in ppl:
+            for it in num_iter:
+                #from sklearn.manifold import TSNE
+                tsne = TSNE(n_components=n_component, verbose=1, perplexity=p, n_iter=it)
+                #tsne_results = tsne.fit_transform(df)
+                tsne_results = tsne.fit_transform(df[df.columns[1:args.FB_function_size+1]])
+                #print('t-SNE done! Time elapsed: {} seconds'.format(time.time() - time_start))
+                #pdb.set_trace()
+                if n_component == 2:
+                    df['tsne-2d-one'] = tsne_results[:,0]
+                    df['tsne-2d-two'] = tsne_results[:,1]
+                    import matplotlib.pyplot as plt
+                    
+                    
+                    plt.figure(figsize=(16,10))
+                    sns.scatterplot(
+                        x="tsne-2d-one", y="tsne-2d-two",
+                        style="function",
+                        hue = "kmeans_lab",
+                            # palette=sns.color_palette("hls", 10),
+                        data=df,
+                        legend="full",
+                        alpha=0.3
+                    )
+                    plt.show()
+                    plt.savefig(str(args.tsne_plot_dir)+curr_date+str(args.model_type)+"_FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
+                    plt.clf()
+                    plt.cla()
+                    plt.close()
+    
+    if args.do_tsne:
+        
         #num_iter = [ 1000,500]
         #pdb.set_trace()
     
@@ -440,13 +488,15 @@ def main():
                 #from sklearn.manifold import TSNE
                 tsne = TSNE(n_components=n_component, verbose=1, perplexity=p, n_iter=it)
                 #tsne_results = tsne.fit_transform(df)
-                tsne_results = tsne.fit_transform(df[df.columns[0:args.FB_function_size]])
+                tsne_results = tsne.fit_transform(df[df.columns[1:args.FB_function_size+1]])
                 #print('t-SNE done! Time elapsed: {} seconds'.format(time.time() - time_start))
                 #pdb.set_trace()
                 if n_component == 2:
                     df['tsne-2d-one'] = tsne_results[:,0]
                     df['tsne-2d-two'] = tsne_results[:,1]
                     import matplotlib.pyplot as plt
+                    
+                    
                     plt.figure(0,figsize=(16,10))
                     sns.scatterplot(
                         x="tsne-2d-one", y="tsne-2d-two",
