@@ -183,6 +183,10 @@ def get_parser():
         "--flex", 
         action='store_true'
     )
+    parser.add_argument(
+        "--pre_z_tanh", 
+        action='store_true'
+    )
     #parser.add_argument(
     #    "--tlayer_size", 
     #    type=int,
@@ -230,6 +234,11 @@ def main():
 
     #%%
     model = AutoModel.from_pretrained('bert-base-uncased')
+    
+    ## TODO add
+    
+    model.config.__dict__['pre_z_tanh']=args.pre_z_tanh
+    
     # originally used BertForNextSentencePrediction
     if args.model_type == 'binary':
         fbmodel = BertForForwardBackwardPrediction(model.config)
@@ -256,7 +265,8 @@ def main():
             #model.config.__dict__['tlayer_size']=args.tlayer_size
             fbmodel = BertForForwardBackward_cos_tlayer_flex(model.config)
     
-    
+    print('fbmodel.config: ')
+    print(fbmodel.config)
     batch_size_train= args.train_batch_size
     batch_size_eval = args.eval_batch_size
     batch_size_test = args.test_batch_size
