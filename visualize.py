@@ -171,6 +171,10 @@ def get_parser():
         #required=False,
         action='store_true'
     )
+    parser.add_argument(
+        "--pre_z_tanh", 
+        action='store_true'
+    )
     return parser
 
 #%%
@@ -203,9 +207,12 @@ def get_dataset_acc(args, dataset, dialogs_flat, k, model, batch_size, device, s
     data_rep['emotion'] = torch.Tensor().cpu()
     data_rep['emotion_prev'] = torch.Tensor().cpu()
     data_rep['emotion_next'] = torch.Tensor().cpu()
+    data_rep['curr_sent'] = torch.Tensor().cpu()
+    data_rep['next_sent'] = torch.Tensor().cpu()
+    data_rep['prev_sent'] = torch.Tensor().cpu()
     
     for batch in loop:
-
+        #pdb.set_trace()
         ############### negative samples ##########
         if len(batch['input_ids_prev']) != batch_size:
             break
@@ -304,6 +311,13 @@ def get_dataset_acc(args, dataset, dialogs_flat, k, model, batch_size, device, s
         data_rep['emotion'] = torch.cat((data_rep['emotion'], batch['emotion'].cpu()),0).cpu().detach()
         data_rep['emotion_prev'] = torch.cat((data_rep['emotion_prev'], batch['emotion_prev'].cpu()),0).cpu().detach()
         data_rep['emotion_next'] = torch.cat((data_rep['emotion_next'], batch['emotion_next'].cpu()),0).cpu().detach()
+        
+        #batch_curr_sents = [ tokenizer.decode(el,skip_special_tokens=True) for el in batch['input_ids']]
+        #batch_prev_sents = [ tokenizer.decode(el,skip_special_tokens=True) for el in batch['input_ids_prev']]
+       # batch_next_sents = [ tokenizer.decode(el,skip_special_tokens=True) for el in batch['input_ids_next']]
+        
+        #data_rep['curr_sent'] = torch.cat((data_rep['curr_sent'], batch_curr_sents),0).cpu().detach()
+        #pdb.set_trace()
         #################################
     print('eval loss: ', total_loss/n_processed)
     if calculate_accuracy:
@@ -335,7 +349,7 @@ def main():
         print('eval negative sample')
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     
-    
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
     dataset = load_dataset(args.dataset)
 
     #dialogs = dataset['train']['dialog']
@@ -374,6 +388,7 @@ def main():
     #bertmodel = BertForForwardBackwardPrediction(model.config)
     model = AutoModel.from_pretrained('bert-base-uncased')
     model.config.__dict__['FB_function_size']=args.FB_function_size
+    model.config.__dict__['pre_z_tanh']=args.pre_z_tanh
     if args.load_state_dict:
         if args.model_type =='cos':
             fbmodel = BertForForwardBackward_cos_flex(model.config)
@@ -428,6 +443,8 @@ def main():
         df['act_prev'] = pd.Series(outputs['act_prev'].repeat(2).cpu().detach().numpy().astype(str))
         df['emotion'] = pd.Series(outputs['emotion'].repeat(2).cpu().detach().numpy().astype(str))
         df['emotion_prev'] = pd.Series(outputs['emotion_prev'].repeat(2).cpu().detach().numpy().astype(str))
+        #pdb.set_trace()
+        df['curr_sent'] = pd.Series(np.array([ tokenizer.decode(el,skip_special_tokens=True) for el in outputs['input_ids'].long()]).repeat(2).astype(str))
         
         X = df[df.columns[1:args.FB_function_size+1]]
 
