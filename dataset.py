@@ -6,7 +6,7 @@ Created on Tue Jan 25 12:46:32 2022
 @author: binger
 """
 import torch
-class ddDataset(torch.utils.data.Dataset):
+class initializeDataset(torch.utils.data.Dataset):
     def __init__(self, encodings):
         self.encodings = encodings
     def __getitem__(self, idx):

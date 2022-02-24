@@ -20,7 +20,7 @@ from torch.utils.data import RandomSampler
 
 from tools import *
 from models import BertForForwardBackwardPrediction
-from dataset import ddDataset
+from dataset import *
 
 @torch.no_grad()
 def evaluation(model, loader_eval, device, epoch,  k, sample_negatives ):

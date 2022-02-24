@@ -8,7 +8,7 @@ Created on Mon Jan 24 22:01:37 2022
 import datasets, transformers, torch
 
 from transformers import AutoTokenizer
-from dataset import ddDataset
+from dataset import *
 
 import logging
 import pdb
@@ -104,14 +104,16 @@ def constructPositives (dataset):
     current_sents: not the first of last sent in dialog
     '''
     # exclude dialogs that only have 2 utterances
-    long_dialogs = [el for el in dataset if len(el)>2]
+    long_dialogs = [el for el in dataset if len(el['turns'])>2]
     
     current_sents = []
     prev_sents = []
     next_sents = []
-    
-    for dialog in long_dialogs:
+    #pdb.set_trace()
+
+    for dia in long_dialogs:
         i = 1
+        dialog = dia['turns']
         while i < len(dialog)-1:
             current_sents.append(dialog[i])
             prev_sents.append(dialog[i-1])
@@ -148,6 +150,7 @@ def constructPositives_dataset (dataset):
         dialog = dia['dialog']
         act = dia['act']
         emotion = dia['emotion']
+        
         while i < len(dialog)-1:
             current_sents.append(dialog[i])
             prev_sents.append(dialog[i-1])
@@ -173,10 +176,10 @@ def constructInputs (prev_sents, curr_sents, next_sents, dataset):
     current_sents_tok = tokenizer(curr_sents, return_tensors='pt', max_length=128, truncation=True, padding='max_length')
     prev_sents_tok = tokenizer(prev_sents, return_tensors='pt', max_length=128, truncation=True, padding='max_length')
     next_sents_tok = tokenizer(next_sents, return_tensors='pt', max_length=128, truncation=True, padding='max_length')
-    labels = torch.LongTensor([0]*len(curr_sents)).T
+    
     
     inputs = current_sents_tok
-
+    
     inputs['input_ids_prev'] = prev_sents_tok['input_ids']
     inputs['input_ids_next'] = next_sents_tok['input_ids']
 
@@ -186,11 +189,12 @@ def constructInputs (prev_sents, curr_sents, next_sents, dataset):
 
     inputs['attention_mask_prev'] = prev_sents_tok['attention_mask']
     inputs['attention_mask_next'] = next_sents_tok['attention_mask']
-
+    labels = torch.LongTensor([0]*len(curr_sents)).T
     inputs['labels'] = labels
     
-    if dataset =='dailydialog':
-        initiated_inputs = ddDataset(inputs)
+        
+    
+    initiated_inputs = initializeDataset(inputs)
     
     return initiated_inputs
 
@@ -218,19 +222,24 @@ def constructInputs_with_act_emotion (sents, acts, emotions, dataset):
     inputs['attention_mask_prev'] = prev_sents_tok['attention_mask']
     inputs['attention_mask_next'] = next_sents_tok['attention_mask']
 
-    inputs['labels'] = labels
-    
-    inputs['act'] = curr_acts
-    inputs['act_prev'] = prev_acts
-    inputs['act_next'] = next_acts
-    
-    inputs['emotion'] = curr_emotions
-    inputs['emotion_prev'] = prev_emotions
-    inputs['emotion_next'] = next_emotions
+    if dataset =='daily_dialog':
+        inputs['labels'] = labels
         
-    if dataset =='dailydialog':
-        initiated_inputs = ddDataset(inputs)
+        inputs['act'] = curr_acts
+        inputs['act_prev'] = prev_acts
+        inputs['act_next'] = next_acts
+        
+        inputs['emotion'] = curr_emotions
+        inputs['emotion_prev'] = prev_emotions
+        inputs['emotion_next'] = next_emotions
+        
     
+    
+    initiated_inputs = initializeDataset(inputs)
+    #pdb.set_trace()
+    #initiated_inputs.set_format('torch', columns=['prev_sents', 'curr_sents','next_sents'])
+    #initiated_inputs.set_format("torch", column=["curr_sents"])
+    #initiated_inputs.set_format("torch", column=["next_sents"])
     return initiated_inputs
 
 

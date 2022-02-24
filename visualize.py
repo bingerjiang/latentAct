@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 
 from tools import *
 from models import *
-from dataset import ddDataset
+from dataset import *
 from evaluation import evaluation
 
 import argparse
@@ -192,8 +192,6 @@ def get_dataset_acc(args, dataset, dialogs_flat, k, model, batch_size, device, s
 
     
     data_rep = dict()
-    data_rep['true_labels'] = torch.LongTensor().cpu()
-    data_rep['pred_labels'] = torch.LongTensor().cpu()
     data_rep['prev_forward'] = torch.Tensor().cpu()
     data_rep['curr_forward'] = torch.Tensor().cpu()
     data_rep['curr_backward'] = torch.Tensor().cpu()
@@ -201,15 +199,20 @@ def get_dataset_acc(args, dataset, dialogs_flat, k, model, batch_size, device, s
     data_rep['input_ids_prev'] = torch.Tensor().cpu()
     data_rep['input_ids'] = torch.Tensor().cpu()
     data_rep['input_ids_next'] = torch.Tensor().cpu()
-    data_rep['act'] = torch.Tensor().cpu()
-    data_rep['act_prev'] = torch.Tensor().cpu()
-    data_rep['act_next'] = torch.Tensor().cpu()
-    data_rep['emotion'] = torch.Tensor().cpu()
-    data_rep['emotion_prev'] = torch.Tensor().cpu()
-    data_rep['emotion_next'] = torch.Tensor().cpu()
     data_rep['curr_sent'] = torch.Tensor().cpu()
     data_rep['next_sent'] = torch.Tensor().cpu()
     data_rep['prev_sent'] = torch.Tensor().cpu()
+    data_rep['true_labels'] = torch.LongTensor().cpu()
+    data_rep['pred_labels'] = torch.LongTensor().cpu()
+    
+    if dataset == 'daily_dialog':
+        data_rep['act'] = torch.Tensor().cpu()
+        data_rep['act_prev'] = torch.Tensor().cpu()
+        data_rep['act_next'] = torch.Tensor().cpu()
+        data_rep['emotion'] = torch.Tensor().cpu()
+        data_rep['emotion_prev'] = torch.Tensor().cpu()
+        data_rep['emotion_next'] = torch.Tensor().cpu()
+    
     
     for batch in loop:
         #pdb.set_trace()
@@ -265,6 +268,7 @@ def get_dataset_acc(args, dataset, dialogs_flat, k, model, batch_size, device, s
         token_type_ids = [batch['token_type_ids_prev'].to(device),
                           batch['token_type_ids'].to(device),
                           batch['token_type_ids_next'].to(device)]
+        
         labels = batch['labels'].to(device)      
         #pdb.set_trace()
         outputs = model(input_ids, attention_mask=attention_mask,
@@ -305,12 +309,13 @@ def get_dataset_acc(args, dataset, dialogs_flat, k, model, batch_size, device, s
         data_rep['input_ids_prev'] = torch.cat((data_rep['input_ids_prev'], batch['input_ids_prev'].cpu()),0).cpu().detach()
         data_rep['input_ids'] = torch.cat((data_rep['input_ids'], batch['input_ids'].cpu()),0).cpu().detach()
         data_rep['input_ids_next'] = torch.cat((data_rep['input_ids_next'], batch['input_ids_next'].cpu()),0).cpu().detach()
-        data_rep['act'] = torch.cat((data_rep['act'], batch['act'].cpu()),0).cpu().detach()
-        data_rep['act_prev'] = torch.cat((data_rep['act_prev'], batch['act_prev'].cpu()),0).cpu().detach()
-        data_rep['act_next'] = torch.cat((data_rep['act_next'], batch['act_next'].cpu()),0).cpu().detach()
-        data_rep['emotion'] = torch.cat((data_rep['emotion'], batch['emotion'].cpu()),0).cpu().detach()
-        data_rep['emotion_prev'] = torch.cat((data_rep['emotion_prev'], batch['emotion_prev'].cpu()),0).cpu().detach()
-        data_rep['emotion_next'] = torch.cat((data_rep['emotion_next'], batch['emotion_next'].cpu()),0).cpu().detach()
+        if dataset == 'daily_dialog':
+            data_rep['act'] = torch.cat((data_rep['act'], batch['act'].cpu()),0).cpu().detach()
+            data_rep['act_prev'] = torch.cat((data_rep['act_prev'], batch['act_prev'].cpu()),0).cpu().detach()
+            data_rep['act_next'] = torch.cat((data_rep['act_next'], batch['act_next'].cpu()),0).cpu().detach()
+            data_rep['emotion'] = torch.cat((data_rep['emotion'], batch['emotion'].cpu()),0).cpu().detach()
+            data_rep['emotion_prev'] = torch.cat((data_rep['emotion_prev'], batch['emotion_prev'].cpu()),0).cpu().detach()
+            data_rep['emotion_next'] = torch.cat((data_rep['emotion_next'], batch['emotion_next'].cpu()),0).cpu().detach()
         
         #batch_curr_sents = [ tokenizer.decode(el,skip_special_tokens=True) for el in batch['input_ids']]
         #batch_prev_sents = [ tokenizer.decode(el,skip_special_tokens=True) for el in batch['input_ids_prev']]
@@ -357,30 +362,42 @@ def main():
     #dialogs_test = dataset['test']['dialog']
 
     dialogs = dataset['train']
-    dialogs_eval = dataset['validation']
+    
     dialogs_test = dataset['test']
+    
+    #if args.dataset =='daily_dialog':
+    #    dialogs_eval = dataset['validation']
     
     
     #if args.trial:
     #    dialogs = dialogs[:20]
     #    dialogs_eval = dialogs_eval[:20]
     #    dialogs_test = dialogs_test[:20]
-    
-    dialogs_flat = [utt for dialog in dialogs['dialog'] for utt in dialog]
+    if args.dataset == 'daily_dialog': 
+        dialogs_flat = [utt for dialog in dialogs['dialog'] for utt in dialog]
+        sents_test, acts_test, emotions_test = constructPositives_dataset(dialogs_test)
+        ddtest = constructInputs_with_act_emotion(sents_test, acts_test, emotions_test, 'daily_dialog')
+    elif args.dataset == 'meta_woz': 
+        dialogs_flat = [utt for dialog in dialogs['turns'] for utt in dialog]
+        sents_test, acts_test, emotions_test = constructPositives(dialogs_test)
+        ddtest = constructInputs(sents_test, acts_test, emotions_test, args.dataset)
 
 
     #[curr_sents, prev_sents, next_sents], acts, emotions = constructPositives_dataset(dialogs)
     #[curr_sents_eval, prev_sents_eval, next_sents_eval], acts_eval, emotions_eval = constructPositives_dataset(dialogs_eval)
     #[curr_sents_test, prev_sents_test, next_sents_test], acts_test, emotions_test = constructPositives_dataset(dialogs_test)
-    sents, acts, emotions = constructPositives_dataset(dialogs)
-    sents_eval, acts_eval, emotions_eval = constructPositives_dataset(dialogs_eval)
-    sents_test, acts_test, emotions_test = constructPositives_dataset(dialogs_test)
+    
+    #sents, acts, emotions = constructPositives_dataset(dialogs)
+    #sents_eval, acts_eval, emotions_eval = constructPositives_dataset(dialogs_eval)
+    
 
     #pdb.set_trace()
     #ddtrain = constructInputs(prev_sents, curr_sents, next_sents, 'dailydialog')
     #ddeval = constructInputs(curr_sents_eval, prev_sents_eval, next_sents_eval, 'dailydialog')
-    ddtest = constructInputs_with_act_emotion(sents_test, acts_test, emotions_test, 'dailydialog')
-    print('added act and emotion')
+    
+
+        
+    
     model_path = args.model_dir
 
     #model = AutoModel.from_pretrained('bert-base-uncased')
@@ -439,13 +456,14 @@ def main():
         func = [0]*len(outputs['curr_backward']) + [1]*len(outputs['curr_backward'])
         df['function'] = pd.Series(np.array(func), index=df.index)
         #pdb.set_trace()
-        df['act'] = pd.Series(outputs['act'].repeat(2).cpu().detach().numpy().astype(str))
-        df['act_prev'] = pd.Series(outputs['act_prev'].repeat(2).cpu().detach().numpy().astype(str))
-        df['emotion'] = pd.Series(outputs['emotion'].repeat(2).cpu().detach().numpy().astype(str))
-        df['emotion_prev'] = pd.Series(outputs['emotion_prev'].repeat(2).cpu().detach().numpy().astype(str))
+        
         #pdb.set_trace()
         df['curr_sent'] = pd.Series(np.array([ tokenizer.decode(el,skip_special_tokens=True) for el in outputs['input_ids'].long()]).repeat(2).astype(str))
-        
+        if args.dataset =='daily_dialog':
+            df['act'] = pd.Series(outputs['act'].repeat(2).cpu().detach().numpy().astype(str))
+            df['act_prev'] = pd.Series(outputs['act_prev'].repeat(2).cpu().detach().numpy().astype(str))
+            df['emotion'] = pd.Series(outputs['emotion'].repeat(2).cpu().detach().numpy().astype(str))
+            df['emotion_prev'] = pd.Series(outputs['emotion_prev'].repeat(2).cpu().detach().numpy().astype(str))
         X = df[df.columns[1:args.FB_function_size+1]]
 
         kmeans = KMeans(n_clusters=14, init ='k-means++', max_iter=300,  n_init=10,random_state=0 )
@@ -454,7 +472,8 @@ def main():
         print(set(y_kmeans))
         df['kmeans_lab'] = y_kmeans.astype(str)
         if args.save_csv:
-            df.to_csv(str(args.csv_dir)+curr_date+ str(args.model_type)+'_FBsize='+str(args.FB_function_size)+'.csv',
+            df.to_csv(str(args.csv_dir)+curr_date+ str(args.model_type)+'_FBsize='+str(args.FB_function_size)+\
+                str(args.dataset)+'.csv',
                   index = True)
         
         #pdb.set_trace()
@@ -490,7 +509,9 @@ def main():
                         alpha=0.3
                     )
                     plt.show()
-                    plt.savefig(str(args.tsne_plot_dir)+curr_date+str(args.model_type)+"_FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
+                    plt.savefig(str(args.tsne_plot_dir)+curr_date+str(args.model_type)+"_FBsize="+\
+                        str(args.FB_function_size)+ str(args.dataset)+ \
+                        "_n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
                     plt.clf()
                     plt.cla()
                     plt.close()
@@ -525,7 +546,9 @@ def main():
                         alpha=0.3
                     )
                     plt.show()
-                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "curr_act_" +str(args.model_type)+"_FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
+                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "curr_act_" +str(args.model_type)+"_FBsize="+\
+                        str(args.FB_function_size)+ str(args.dataset)+ \
+                            + "_n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
                     plt.clf()
                     plt.cla()
                     plt.close()
@@ -541,7 +564,9 @@ def main():
                         alpha=0.3
                     )
                     plt.show()
-                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "prev_act_" +str(args.model_type)+"_FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
+                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "prev_act_" +str(args.model_type)+"_FBsize="+\
+                        str(args.FB_function_size)+ str(args.dataset)+ \
+                            + "_n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
                     plt.clf()
                     plt.cla()
                     plt.close()
@@ -557,7 +582,9 @@ def main():
                         alpha=0.3
                     )
                     plt.show()
-                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "curr_emotion_" +str(args.model_type)+"_FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
+                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "curr_emotion_" +str(args.model_type)+"_FBsize="+\
+                        str(args.FB_function_size)+ str(args.dataset)+ \
+                            + "_n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
                     plt.clf()
                     plt.cla()
                     plt.close()
@@ -573,7 +600,9 @@ def main():
                         alpha=0.3
                     )
                     plt.show()
-                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "prev_emotion_" +str(args.model_type)+"_FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
+                    plt.savefig(str(args.tsne_plot_dir)+curr_date+ "prev_emotion_" +str(args.model_type)+"_FBsize="+\
+                        str(args.FB_function_size)+ str(args.dataset)+ \
+                             "_n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
                     plt.clf()
                     plt.cla()
                     plt.close()
