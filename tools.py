@@ -10,8 +10,11 @@ import datasets, transformers, torch
 from transformers import AutoTokenizer
 from dataset import *
 
-import logging
+
 import pdb
+import datetime
+import logging
+import os
 def sample_next(sents, k):
     '''
     Parameters
@@ -265,9 +268,48 @@ def setup_logger(logger_name):
 
     return logger
 
+def initiateTokenizedInputs (sents,embed_type, dataset='meta_woz'):
+    if embed_type == 'bert':
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    elif embed_type == 'sbert':
+        tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/bert-base-nli-mean-tokens')
+    elif embed_type == 'simcse':
+        tokenizer = AutoTokenizer.from_pretrained("princeton-nlp/sup-simcse-bert-base-uncased")
+    sents_tok = tokenizer(sents, return_tensors='pt', max_length=128, truncation=True, padding='max_length')
+    initiated_inputs = initializeDataset(sents_tok)
+    
+    return initiated_inputs
 
 
 
 
+
+def setup_logs(save_dir, run_name='none'):
+    ## copy from cpc-nlp-pytorch
+    
+    if run_name =='none':
+        now = datetime.datetime.now()
+        curr_date = now.strftime("%Y-%m-%d_%H_%M_%S")
+        run_name = curr_date
+    # initialize logger
+    logger = logging.getLogger("cpc")
+    logger.setLevel(logging.INFO)
+
+    # create the logging file handler
+    log_file = os.path.join(save_dir, run_name + ".log")
+    fh = logging.FileHandler(log_file)
+
+    # create the logging console handler
+    ch = logging.StreamHandler()
+
+    # format
+    formatter = logging.Formatter("%(asctime)s - %(message)s")
+    fh.setFormatter(formatter)
+
+    # add handlers to logger object
+    logger.addHandler(fh)
+    logger.addHandler(ch)
+
+    return logger
 
 

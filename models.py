@@ -641,6 +641,7 @@ class BertForForwardBackwardPrediction_cos_tlayer(BertPreTrainedModel):
         )
         
 class BertForForwardBackward_cos_tlayer_flex(BertPreTrainedModel):
+    
     def __init__(self, config):
         super().__init__(config)
 
@@ -741,3 +742,195 @@ class BertForForwardBackward_cos_tlayer_flex(BertPreTrainedModel):
             hidden_states=[prev_forward, curr_forward, curr_backward, next_backward],
             #attentions=prev_outs.attentions,
         )
+        
+def mean_pooling(model_output, attention_mask):
+    token_embeddings = model_output[0] #First element of model_output contains all token embeddings
+    input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+       
+def get_sentence_embeddings(model, data, device):
+   
+    
+    data['input_ids']=data['input_ids'].to(device)
+    data['token_type_ids']=data['token_type_ids'].to(device)
+    data['attention_mask']=data['attention_mask'].to(device)
+    model.to(device)
+    #pdb.set_trace()
+
+    #with torch.no_grad():
+    model_output = model(**data)
+
+    #model_output.to(device)
+    # Perform pooling. In this case, max pooling.
+    sentence_embeddings = mean_pooling(model_output, data['attention_mask'])
+    #pdb.set_trace()
+    return sentence_embeddings        
+
+
+class CPCAR(nn.Module):
+
+# from fb cpc
+
+    def __init__(self,
+                 dimEncoded,  #dimEncoded
+                 dimGar, #dimOutput
+                 keepHidden,
+                 nLevelsGRU,
+                 mode="GRU",
+                 reverse=False):
+
+        super(CPCAR, self).__init__()
+        self.RESIDUAL_STD = 0.1
+
+        if mode == "LSTM":
+            self.baseNet = nn.LSTM(dimEncoded, dimGar,
+                                   num_layers=nLevelsGRU, batch_first=True)
+        elif mode == "RNN":
+            self.baseNet = nn.RNN(dimEncoded, dimGar,
+                                  num_layers=nLevelsGRU, batch_first=True)
+        else:
+            self.baseNet = nn.GRU(dimEncoded, dimGar,
+                                  num_layers=nLevelsGRU, batch_first=True)
+
+        self.hidden = None
+        self.keepHidden = keepHidden
+        self.reverse = reverse
+
+    def getDimOutput(self):
+        return self.baseNet.hidden_size
+
+    def forward(self, x):
+
+        ##if self.reverse:
+        ##    x = torch.flip(x, [1])
+        try:
+            self.baseNet.flatten_parameters()
+        except RuntimeError:
+            pass
+        x = x.view(-1, 11, 768)
+        x, h = self.baseNet(x, self.hidden)
+        if self.keepHidden:
+            if isinstance(h, tuple):
+                self.hidden = tuple(x.detach() for x in h)
+            else:
+                self.hidden = h.detach()
+        
+        # For better modularity, a sequence's order should be preserved
+        # by each module
+        ##if self.reverse:
+        ##    x = torch.flip(x, [1])
+        
+        ## B2: x is [batch_size, seq_len, dim], as batch_first=true
+        ## for 1st test, [11, 11, 768] on metawoz
+        return x
+
+class cpc_nsp(nn.Module): ## not used
+    def __init__(self, config):
+        super().__init__(config)
+
+        # self.bert = BertModel(config)
+        
+        #config = BertConfig.from_pretrained('bert-base-uncased')    
+        # self.bert = AutoModel.from_config(config)
+        # self.z_forward = nn.Linear(config.hidden_size, config.FB_function_size)
+        # self.z_backward = nn.Linear(config.hidden_size, config.FB_function_size)
+        self.cls = nn.Linear(config.FB_function_size*2, 2)
+
+        # Initialize weights and apply final processing
+        #self.post_init()
+        
+    #@add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+    #@replace_return_docstrings(output_type=NextSentencePredictorOutput, config_class=_CONFIG_FOR_DOC)
+    def forward(
+        self,
+        sent_embeddings,
+        cFeatures,
+        args
+    ):
+        
+        cFeatures_prediction = cFeatures[:, :-args.predict_k, :]
+            ## predictions to be matched to input encodings 
+            
+        gar = sent_embeddings.view(-1, 11, 768)
+        gar_target = gar[:, args.predict_k:, :]
+
+        cFeatures_prediction = torch.flatten(cFeatures_prediction, start_dim=0, end_dim=1)
+        gar_target = torch.flatten(gar_target, start_dim=0, end_dim=1)            
+
+        assert(cFeatures_prediction.shape == gar_target.shape)
+        
+        embeddings = torch.cat((cFeatures_prediction, gar_target), dim=0)
+        
+        label_length = gar_target.shape[0]
+        labels = torch.arange(label_length)
+        labels = labels.repeat(2)
+        
+        loss_func = NTXentLoss()
+        
+        loss = loss_func(embeddings, labels)
+            
+            
+        ## get forward function and backward function
+        prev_forward =self.z_forward(prev_pooler)
+        curr_backward = self.z_backward(curr_pooler)
+        curr_forward = self.z_forward(curr_pooler)
+        next_backward = self.z_backward(next_pooler)
+        
+        forward_pooled_outs = torch.cat((prev_forward, curr_forward), 0)
+        backward_pooled_outs = torch.cat((curr_backward, next_backward), 0)
+        pooled_outs = torch.cat((forward_pooled_outs, backward_pooled_outs),1)
+        
+        labels = labels.repeat(2,1)
+
+        seq_relationship_scores = self.cls(pooled_outs)
+        #pdb.set_trace()
+        forward_backward_loss = None
+        if labels is not None:
+            loss_fct = CrossEntropyLoss()
+            forward_backward_loss = loss_fct(seq_relationship_scores.view(-1, 2), labels.view(-1))
+        #pdb.set_trace()
+        return NextSentencePredictorOutput(
+            loss=forward_backward_loss,
+            logits=seq_relationship_scores,
+            hidden_states=[prev_forward, curr_forward, curr_backward, next_backward],
+            #attentions=prev_outs.attentions,
+        )
+        
+class CPCModel_wrapped(nn.Module):
+    def __init__(self,
+                 encoder,
+                 AR,
+                 AR_type):
+
+        super(CPCModel, self).__init__()
+        self.gEncoder = encoder
+        self.gAR = AR
+        self.AR_type = AR_type
+
+    def forward(self, batchData):
+
+        device =torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        sent_embeddings = get_sentence_embeddings(self.gEncoder, batchData, device)
+        if self.AR_type == 'transformer':  
+            sent_embeddings = sent_embeddings.view(-1, n_turns, dim_encoded)
+
+        cFeatures = self.gAR(sent_embeddings)
+        
+        cFeatures_prediction = cFeatures[:, :-args.predict_k, :]
+            ## predictions to be matched to input encodings 
+            
+        gar = sent_embeddings.view(-1, 11, 768)
+        gar_target = gar[:, args.predict_k:, :]
+
+        cFeatures_prediction = torch.flatten(cFeatures_prediction, start_dim=0, end_dim=1)
+        gar_target = torch.flatten(gar_target, start_dim=0, end_dim=1)            
+
+        assert(cFeatures_prediction.shape == gar_target.shape)
+        
+        embeddings = torch.cat((cFeatures_prediction, gar_target), dim=0)
+        #pdb.set_trace()
+        
+        label_length = gar_target.shape[0]
+        labels = torch.arange(label_length)
+        labels = labels.repeat(2)
+        return cFeature

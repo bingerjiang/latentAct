@@ -224,9 +224,9 @@ def main():
     curr_sents_test, prev_sents_test, next_sents_test = constructPositives(dialogs_test)
 
 
-    ddtrain = constructInputs(prev_sents, curr_sents, next_sents, 'dailydialog')
-    ddeval = constructInputs(curr_sents_eval, prev_sents_eval, next_sents_eval, 'dailydialog')
-    ddtest = constructInputs(curr_sents_test, prev_sents_test, next_sents_test, 'dailydialog')
+    ddtrain = constructInputs(prev_sents, curr_sents, next_sents, args.dataset)
+    ddeval = constructInputs(curr_sents_eval, prev_sents_eval, next_sents_eval, args.dataset)
+    ddtest = constructInputs(curr_sents_test, prev_sents_test, next_sents_test, args.dataset)
     #test_input_prev = tokenizer(all_prev_sents[:50], return_tensors='pt', max_length=256, truncation=True, padding='max_length')
     #test_input_next = tokenizer(all_next_sents[:50], return_tensors='pt', max_length=256, truncation=True, padding='max_length')
     #test_labs = torch.LongTensor(all_labs[:50]).T
