@@ -26,10 +26,12 @@ import matplotlib.pyplot as plt
 
 from tools import *
 from models import BertForForwardBackwardPrediction
-from dataset import ddDataset
-from evaluation import evaluation
+from dataset import *
+from evaluation import *
 
 import argparse
+import datetime
+
 def get_parser():
     """Get argument parser."""
     parser = argparse.ArgumentParser()
@@ -101,10 +103,31 @@ def get_parser():
         default=3,
         help="negatives vs. positives"
     )
+    parser.add_argument(
+        "--FB_function_size", 
+        type=int,
+        #required=False,
+        default=64,
+        help="the size of the forward backward function"
+    )
+    parser.add_argument(
+        "--tsne_plot_dir", 
+        type=str,
+        default='./tsne_plots/',
+        help="directory to save tsne plots"
+    )
+    parser.add_argument(
+        "--csv_dir", 
+        type=str,
+        default='./csvs/',
+        help="directory to save csv file for F/B functions"
+    )
+    
 
     return parser
 
 #%%
+
 def get_dataset_acc(args, dataset, dialogs_flat, k, model, batch_size, device, sample_negatives):
     loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
     model.to(device)
@@ -188,7 +211,7 @@ def get_dataset_acc(args, dataset, dialogs_flat, k, model, batch_size, device, s
         outputs = model(input_ids, attention_mask=attention_mask,
                         token_type_ids=token_type_ids,
                         labels=labels)
-
+        
         loss = outputs.loss
         total_loss+= loss.item()
         logits = outputs.logits
@@ -225,7 +248,7 @@ def get_dataset_acc(args, dataset, dialogs_flat, k, model, batch_size, device, s
 
         #################################
     print('eval loss: ', total_loss/n_processed)
-
+    print('outputs.hidden_states[0].shape: ',outputs.hidden_states[0].shape)
     acc = total_correct/ n_processed
     #pdb.set_trace()
     return acc, data_rep
@@ -242,12 +265,13 @@ def get_num_correct (pred_labs, true_labs):
 
 def main():
     #%%
-    
+    now = datetime.datetime.now()
+    curr_date = now.strftime("%Y-%m-%d")
     parser = get_parser()
     args = parser.parse_args()
     if args.do_tsne:
         print('do tsne')
-    if args.eval_batch_size:
+    if args.eval_sample_negatives:
         print('eval negative sample')
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     
@@ -258,7 +282,10 @@ def main():
     dialogs_eval = dataset['validation']['dialog']
     dialogs_test = dataset['test']['dialog']
 
-
+    #dialogs = dataset['train']
+    #dialogs_eval = dataset['validation']
+    #dialogs_test = dataset['test']
+    
     dialogs_flat = [utt for dialog in dialogs for utt in dialog]
 
 
@@ -266,18 +293,19 @@ def main():
     curr_sents_eval, prev_sents_eval, next_sents_eval = constructPositives(dialogs_eval)
     curr_sents_test, prev_sents_test, next_sents_test = constructPositives(dialogs_test)
 
-
+    #pdb.set_trace()
     ddtrain = constructInputs(prev_sents, curr_sents, next_sents, 'dailydialog')
     ddeval = constructInputs(curr_sents_eval, prev_sents_eval, next_sents_eval, 'dailydialog')
     ddtest = constructInputs(curr_sents_test, prev_sents_test, next_sents_test, 'dailydialog')
 
     model_path = args.model_dir
 
-    model = AutoModel.from_pretrained('bert-base-uncased')
+    #model = AutoModel.from_pretrained('bert-base-uncased')
     # originally used BertForNextSentencePrediction
-    bertmodel = BertForForwardBackwardPrediction(model.config)
-
+    #bertmodel = BertForForwardBackwardPrediction(model.config)
+    
     fbmodel = torch.load( model_path+ args.load_model_name)
+    print (fbmodel.config)
     #torch.save(fbmodel.state_dict(), model_path+ 'statedict_lr=1e-5_model.epoch_3')
     # lr=1e-5_model.epoch_3
     # 0.9793
@@ -295,6 +323,7 @@ def main():
 
     acc_eval, outputs = get_dataset_acc(args, ddeval, dialogs_flat, args.k_neg_pos, fbmodel, args.eval_batch_size, device, args.eval_sample_negatives)
     print('eval acc: ',acc_eval)
+    
 
     #acc_test,outputs = get_dataset_acc(ddtest, fbmodel, batch_size, device, False)
     #print('fbmodel test acc: ',acc_test)
@@ -302,20 +331,28 @@ def main():
     if args.do_tsne:
         time_start = time.time()
         #pdb.set_trace()
-        df=pd.DataFrame(torch.cat((outputs['curr_backward'], outputs['curr_forward']), 0).cpu().detach().numpy())
+        df=pd.DataFrame(torch.cat((outputs['curr_backward'], outputs['prev_forward']), 0).cpu().detach().numpy())
         func = [0]*len(outputs['curr_backward']) + [1]*len(outputs['curr_backward'])
         df['function'] = pd.Series(np.array(func), index=df.index)
+        
+        
+        df.to_csv(str(args.csv_dir)+curr_date+'FBsize='+str(args.FB_function_size)+'k='+str(args.k_neg_pos)+'.csv',
+                  index = True)
         n_component = 2
 
-        ppl = [30, 40, 50]
-                # ppl = [50]
-                
-        num_iter = [ 300, 1000, 5000]
+        ppl = [ 50, 40, 30]
+                # 
+        #ppl = [50]
+        num_iter = [ 1000, 300,500]
+        #num_iter = [ 1000,500]
         for p in ppl:
             for it in num_iter:
+                #from sklearn.manifold import TSNE
                 tsne = TSNE(n_components=n_component, verbose=1, perplexity=p, n_iter=it)
-                tsne_results = tsne.fit_transform(df)
-                print('t-SNE done! Time elapsed: {} seconds'.format(time.time() - time_start))
+                #tsne_results = tsne.fit_transform(df)
+                tsne_results = tsne.fit_transform(df[df.columns[0:64]])
+                #print('t-SNE done! Time elapsed: {} seconds'.format(time.time() - time_start))
+                #pdb.set_trace()
                 if n_component ==2:
                     df['tsne-2d-one'] = tsne_results[:,0]
                     df['tsne-2d-two'] = tsne_results[:,1]
@@ -342,13 +379,13 @@ def main():
                         legend="full",
                         alpha=0.3
                     )
-                plt.savefig("./tsne_plots/n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
+                plt.savefig(str(args.tsne_plot_dir)+curr_date+ "FBsize="+str(args.FB_function_size)+ "n_comp="+str(n_component)+"_ppl"+str(p)+"step"+str(it)+".png")
                 print ('Plotted perplexity %d step %d'%(p, it))
                 print('Time plotting this plot: {} seconds'.format(time.time() - time_start))
 
 
-    pdb.set_trace()
-    print('done')
+    #pdb.set_trace()
+    print('model: ', args.load_model_name)
 
 
 #acc_train = get_dataset_acc(ddtrain, fbmodel, batch_size, device)
